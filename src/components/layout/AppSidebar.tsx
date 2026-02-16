@@ -18,26 +18,34 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const navItems = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/chat", icon: MessageSquare, label: "Atendimento" },
-  { to: "/contacts", icon: Users, label: "Contatos" },
-  { to: "/chatbot", icon: Bot, label: "Chatbot" },
-  { to: "/groups", icon: MessageCircle, label: "Grupos" },
-  { to: "/broadcasts", icon: Send, label: "Disparos" },
-  { to: "/polls", icon: ClipboardList, label: "Enquetes" },
-  { to: "/signatures", icon: FileSignature, label: "Assinaturas" },
-  { to: "/reports", icon: BarChart3, label: "Relatórios" },
-  { to: "/credits", icon: CreditCard, label: "Créditos" },
-  { to: "/webhooks", icon: Webhook, label: "Webhooks" },
-  { to: "/superadmin", icon: ShieldCheck, label: "SuperAdmin" },
-  { to: "/settings", icon: Settings, label: "Configurações" },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", minRole: null },
+  { to: "/chat", icon: MessageSquare, label: "Atendimento", minRole: null },
+  { to: "/contacts", icon: Users, label: "Contatos", minRole: null },
+  { to: "/chatbot", icon: Bot, label: "Chatbot", minRole: null },
+  { to: "/groups", icon: MessageCircle, label: "Grupos", minRole: null },
+  { to: "/broadcasts", icon: Send, label: "Disparos", minRole: null },
+  { to: "/polls", icon: ClipboardList, label: "Enquetes", minRole: null },
+  { to: "/signatures", icon: FileSignature, label: "Assinaturas", minRole: null },
+  { to: "/reports", icon: BarChart3, label: "Relatórios", minRole: null },
+  { to: "/credits", icon: CreditCard, label: "Créditos", minRole: null },
+  { to: "/webhooks", icon: Webhook, label: "Webhooks", minRole: "admin" as const },
+  { to: "/superadmin", icon: ShieldCheck, label: "SuperAdmin", minRole: "admin" as const },
+  { to: "/settings", icon: Settings, label: "Configurações", minRole: null },
 ];
 
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { role, isAdmin } = useUserRole();
+
+  const visibleItems = navItems.filter((item) => {
+    if (!item.minRole) return true;
+    if (item.minRole === "admin") return isAdmin;
+    return true;
+  });
 
   return (
     <aside
@@ -62,7 +70,7 @@ export function AppSidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
-        {navItems.map(({ to, icon: Icon, label }) => {
+        {visibleItems.map(({ to, icon: Icon, label }) => {
           const isActive = location.pathname.startsWith(to);
           return (
             <NavLink
