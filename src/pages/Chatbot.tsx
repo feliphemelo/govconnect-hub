@@ -61,7 +61,7 @@ export default function Chatbot() {
   const [menuType, setMenuType] = useState("list");
   const [actionType, setActionType] = useState("");
   const [actionTarget, setActionTarget] = useState("");
-
+  const [sectors, setSectors] = useState<{ id: string; name: string }[]>([]);
   // Config state
   const [config, setConfig] = useState<ChatbotConfig>({
     welcome_message: "Olá! Bem-vindo ao nosso atendimento.",
@@ -103,8 +103,13 @@ export default function Chatbot() {
     setKbItems((data as KBItem[]) ?? []);
   };
 
+  const loadSectors = async () => {
+    const { data } = await supabase.from("sectors").select("id, name").eq("is_active", true);
+    setSectors(data ?? []);
+  };
+
   useEffect(() => {
-    if (user) { loadMenus(); loadConfig(); loadKB(); }
+    if (user) { loadMenus(); loadConfig(); loadKB(); loadSectors(); }
   }, [user]);
 
   const addMenu = async () => {
@@ -195,9 +200,21 @@ export default function Chatbot() {
                       </div>
                       <div className="space-y-2">
                         <Label>Ação</Label>
-                        <Select value={actionType} onValueChange={setActionType}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value="submenu">Submenu</SelectItem><SelectItem value="sector">Setor Humano</SelectItem><SelectItem value="form">Formulário</SelectItem><SelectItem value="message">Mensagem</SelectItem><SelectItem value="survey">Pesquisa</SelectItem></SelectContent></Select>
+                        <Select value={actionType} onValueChange={setActionType}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value="submenu">Submenu</SelectItem><SelectItem value="sector">Setor/Fila</SelectItem><SelectItem value="form">Formulário</SelectItem><SelectItem value="message">Mensagem</SelectItem><SelectItem value="survey">Pesquisa</SelectItem></SelectContent></Select>
                       </div>
                     </div>
+                    {actionType === "sector" && (
+                      <div className="space-y-2">
+                        <Label>Vincular ao Setor/Fila</Label>
+                        <Select value={actionTarget} onValueChange={setActionTarget}>
+                          <SelectTrigger><SelectValue placeholder="Selecione o setor" /></SelectTrigger>
+                          <SelectContent>
+                            {sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">Ao selecionar esta opção, o contato será transferido para a fila de atendimento do setor.</p>
+                      </div>
+                    )}
                     <Button onClick={addMenu} className="w-full">Salvar</Button>
                   </div>
                 </DialogContent>

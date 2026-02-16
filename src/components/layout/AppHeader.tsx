@@ -1,4 +1,4 @@
-import { Bell, LogOut, User } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { NotificationSystem } from "@/components/NotificationSystem";
 
 export function AppHeader() {
   const { user, signOut } = useAuth();
@@ -30,13 +31,7 @@ export function AppHeader() {
 
       <div className="flex items-center gap-2">
         <ThemeToggle />
-
-        <Button variant="ghost" size="icon" className="relative h-9 w-9">
-          <Bell className="h-4 w-4" />
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
-            3
-          </span>
-        </Button>
+        <NotificationSystem />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

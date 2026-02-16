@@ -259,6 +259,50 @@ export type Database = {
           },
         ]
       }
+      chatbot_flows: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          trigger_type: string | null
+          trigger_value: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          trigger_type?: string | null
+          trigger_value?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          trigger_type?: string | null
+          trigger_value?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_flows_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chatbot_menus: {
         Row: {
           action_target: string | null
@@ -465,6 +509,7 @@ export type Database = {
           close_message: string | null
           closed_at: string | null
           company_id: string
+          connection_type: string | null
           contact_id: string
           created_at: string
           id: string
@@ -481,6 +526,7 @@ export type Database = {
           close_message?: string | null
           closed_at?: string | null
           company_id: string
+          connection_type?: string | null
           contact_id: string
           created_at?: string
           id?: string
@@ -497,6 +543,7 @@ export type Database = {
           close_message?: string | null
           closed_at?: string | null
           company_id?: string
+          connection_type?: string | null
           contact_id?: string
           created_at?: string
           id?: string
@@ -565,6 +612,99 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      flow_edges: {
+        Row: {
+          condition: Json | null
+          created_at: string
+          flow_id: string
+          id: string
+          label: string | null
+          source_node_id: string
+          target_node_id: string
+        }
+        Insert: {
+          condition?: Json | null
+          created_at?: string
+          flow_id: string
+          id?: string
+          label?: string | null
+          source_node_id: string
+          target_node_id: string
+        }
+        Update: {
+          condition?: Json | null
+          created_at?: string
+          flow_id?: string
+          id?: string
+          label?: string | null
+          source_node_id?: string
+          target_node_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flow_edges_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_flows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flow_edges_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "flow_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flow_edges_target_node_id_fkey"
+            columns: ["target_node_id"]
+            isOneToOne: false
+            referencedRelation: "flow_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      flow_nodes: {
+        Row: {
+          content: Json | null
+          created_at: string
+          flow_id: string
+          id: string
+          label: string | null
+          node_type: string
+          position_x: number | null
+          position_y: number | null
+        }
+        Insert: {
+          content?: Json | null
+          created_at?: string
+          flow_id: string
+          id?: string
+          label?: string | null
+          node_type?: string
+          position_x?: number | null
+          position_y?: number | null
+        }
+        Update: {
+          content?: Json | null
+          created_at?: string
+          flow_id?: string
+          id?: string
+          label?: string | null
+          node_type?: string
+          position_x?: number | null
+          position_y?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flow_nodes_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_flows"
             referencedColumns: ["id"]
           },
         ]
@@ -757,6 +897,50 @@ export type Database = {
           },
         ]
       }
+      internal_messages: {
+        Row: {
+          company_id: string
+          content: string | null
+          created_at: string
+          id: string
+          is_read: boolean | null
+          media_type: string | null
+          media_url: string | null
+          receiver_id: string
+          sender_id: string
+        }
+        Insert: {
+          company_id: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          media_type?: string | null
+          media_url?: string | null
+          receiver_id: string
+          sender_id: string
+        }
+        Update: {
+          company_id?: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          media_type?: string | null
+          media_url?: string | null
+          receiver_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_messages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_base: {
         Row: {
           category: string | null
@@ -791,6 +975,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "knowledge_base_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_templates: {
+        Row: {
+          body_text: string
+          buttons: Json | null
+          category: string
+          company_id: string
+          created_at: string
+          footer_text: string | null
+          header_text: string | null
+          id: string
+          language: string
+          meta_template_id: string | null
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          body_text: string
+          buttons?: Json | null
+          category?: string
+          company_id: string
+          created_at?: string
+          footer_text?: string | null
+          header_text?: string | null
+          id?: string
+          language?: string
+          meta_template_id?: string | null
+          name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          body_text?: string
+          buttons?: Json | null
+          category?: string
+          company_id?: string
+          created_at?: string
+          footer_text?: string | null
+          header_text?: string | null
+          id?: string
+          language?: string
+          meta_template_id?: string | null
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_templates_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -876,6 +1116,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          popup_duration: number | null
+          popup_enabled: boolean | null
+          sound_enabled: boolean | null
+          sound_volume: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          popup_duration?: number | null
+          popup_enabled?: boolean | null
+          sound_enabled?: boolean | null
+          sound_volume?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          popup_duration?: number | null
+          popup_enabled?: boolean | null
+          sound_enabled?: boolean | null
+          sound_volume?: number | null
+          user_id?: string
+        }
+        Relationships: []
       }
       plans: {
         Row: {
