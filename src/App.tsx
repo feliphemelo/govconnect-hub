@@ -22,6 +22,7 @@ import Webhooks from "./pages/Webhooks";
 import Polls from "./pages/Polls";
 import SuperAdmin from "./pages/SuperAdmin";
 import SettingsPage from "./pages/SettingsPage";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +58,7 @@ const App = () => (
                 <Route path="/polls" element={<Polls />} />
                 <Route path="/superadmin" element={<SuperAdmin />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/profile" element={<Profile />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
