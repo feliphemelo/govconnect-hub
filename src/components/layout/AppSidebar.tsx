@@ -17,6 +17,8 @@ import {
   ClipboardList,
   ShieldCheck,
   Plug,
+  MessagesSquare,
+  GitBranch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -24,8 +26,10 @@ import { useUserRole } from "@/hooks/useUserRole";
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", minRole: null },
   { to: "/chat", icon: MessageSquare, label: "Atendimento", minRole: null },
+  { to: "/internal-chat", icon: MessagesSquare, label: "Chat Interno", minRole: null },
   { to: "/contacts", icon: Users, label: "Contatos", minRole: null },
   { to: "/chatbot", icon: Bot, label: "Chatbot", minRole: null },
+  { to: "/flow-builder", icon: GitBranch, label: "Fluxos", minRole: null },
   { to: "/groups", icon: MessageCircle, label: "Grupos", minRole: null },
   { to: "/broadcasts", icon: Send, label: "Disparos", minRole: null },
   { to: "/polls", icon: ClipboardList, label: "Enquetes", minRole: null },

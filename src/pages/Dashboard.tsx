@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Users, MessageSquare, Bot, FileText, Clock, CircleDot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from "recharts";
-
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
+import { DashboardFilters, defaultFilters, type FilterValues } from "@/components/DashboardFilters";
 interface DashboardStats {
   totalContacts: number;
   activeConversations: number;
@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [agents, setAgents] = useState<AgentStatus[]>([]);
   const [monthlyData, setMonthlyData] = useState<{ month: string; contacts: number; chatbot: number; human: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<FilterValues>(defaultFilters);
 
   useEffect(() => {
     if (!user) return;
@@ -104,8 +105,13 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Visão geral do atendimento</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground">Visão geral do atendimento</p>
+          </div>
+          <DashboardFilters filters={filters} onChange={setFilters} />
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

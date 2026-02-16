@@ -8,10 +8,12 @@ import { BarChart3, Star, Users, Shield, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { DashboardFilters, defaultFilters, type FilterValues } from "@/components/DashboardFilters";
 
 export default function Reports() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [filters, setFilters] = useState<FilterValues>(defaultFilters);
   const [npsData, setNpsData] = useState<{ avg: number; count: number; bySector: { name: string; avg: number; count: number }[] }>({ avg: 0, count: 0, bySector: [] });
   const [agentStats, setAgentStats] = useState<{ name: string; total: number; active: number; status: string }[]>([]);
   const [accessLogs, setAccessLogs] = useState<{ action: string; ip_address: string | null; created_at: string }[]>([]);
@@ -90,7 +92,10 @@ export default function Reports() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Relatórios</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Relatórios</h1>
+          <DashboardFilters filters={filters} onChange={setFilters} />
+        </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => exportCSV(
             agentStats.map(a => ({ Nome: a.name, Status: a.status, Ativos: a.active, Total: a.total })),
