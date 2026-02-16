@@ -19,6 +19,8 @@ import Signatures from "./pages/Signatures";
 import Reports from "./pages/Reports";
 import Credits from "./pages/Credits";
 import Webhooks from "./pages/Webhooks";
+import Polls from "./pages/Polls";
+import SuperAdmin from "./pages/SuperAdmin";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
@@ -52,6 +54,8 @@ const App = () => (
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/credits" element={<Credits />} />
                 <Route path="/webhooks" element={<Webhooks />} />
+                <Route path="/polls" element={<Polls />} />
+                <Route path="/superadmin" element={<SuperAdmin />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, MessageSquare, Bot, FileText, Clock, CircleDot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from "recharts";
 
 interface DashboardStats {
   totalContacts: number;
@@ -28,6 +29,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>({ totalContacts: 0, activeConversations: 0, closedToday: 0, totalProtocols: 0 });
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [agents, setAgents] = useState<AgentStatus[]>([]);
+  const [monthlyData, setMonthlyData] = useState<{ month: string; contacts: number; chatbot: number; human: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -49,33 +51,41 @@ export default function Dashboard() {
         totalProtocols: protocolsRes.count ?? 0,
       });
 
-      // Queue by sector
       if (sectorsRes.data) {
         const queueData: QueueItem[] = [];
         for (const sector of sectorsRes.data) {
-          const { count } = await supabase
-            .from("conversations")
-            .select("id", { count: "exact", head: true })
-            .eq("sector_id", sector.id)
-            .in("status", ["pending", "waiting"]);
+          const { count } = await supabase.from("conversations").select("id", { count: "exact", head: true }).eq("sector_id", sector.id).in("status", ["pending", "waiting"]);
           queueData.push({ sector_name: sector.name, pending_count: count ?? 0 });
         }
         setQueue(queueData);
       }
 
-      // Agent statuses
       if (profilesRes.data) {
         const agentData: AgentStatus[] = [];
         for (const p of profilesRes.data) {
-          const { count } = await supabase
-            .from("conversations")
-            .select("id", { count: "exact", head: true })
-            .eq("assigned_to", p.user_id)
-            .eq("status", "active");
+          const { count } = await supabase.from("conversations").select("id", { count: "exact", head: true }).eq("assigned_to", p.user_id).eq("status", "active");
           agentData.push({ full_name: p.full_name, status: p.status ?? "offline", active_count: count ?? 0 });
         }
         setAgents(agentData);
       }
+
+      // Monthly chart data (last 6 months)
+      const months: { month: string; contacts: number; chatbot: number; human: number }[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+        const end = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString();
+        const monthLabel = d.toLocaleDateString("pt-BR", { month: "short" });
+
+        const [{ count: c }, { count: cb }, { count: h }] = await Promise.all([
+          supabase.from("contacts").select("id", { count: "exact", head: true }).gte("created_at", start).lte("created_at", end),
+          supabase.from("conversations").select("id", { count: "exact", head: true }).eq("channel", "whatsapp").gte("created_at", start).lte("created_at", end).is("assigned_to", null),
+          supabase.from("conversations").select("id", { count: "exact", head: true }).gte("created_at", start).lte("created_at", end).not("assigned_to", "is", null),
+        ]);
+        months.push({ month: monthLabel, contacts: c ?? 0, chatbot: cb ?? 0, human: h ?? 0 });
+      }
+      setMonthlyData(months);
 
       setLoading(false);
     };
@@ -89,11 +99,7 @@ export default function Dashboard() {
     { label: "Protocolos Gerados", value: stats.totalProtocols, icon: FileText, color: "text-warning" },
   ];
 
-  const statusColor: Record<string, string> = {
-    online: "bg-success",
-    offline: "bg-muted-foreground",
-    busy: "bg-warning",
-  };
+  const statusColor: Record<string, string> = { online: "bg-success", offline: "bg-muted-foreground", busy: "bg-warning" };
 
   return (
     <div className="space-y-6">
@@ -110,36 +116,45 @@ export default function Dashboard() {
               <stat.icon className={`h-5 w-5 ${stat.color}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
-                {loading ? "..." : stat.value.toLocaleString("pt-BR")}
-              </div>
+              <div className="text-3xl font-bold">{loading ? "..." : stat.value.toLocaleString("pt-BR")}</div>
             </CardContent>
           </Card>
         ))}
       </div>
 
+      {/* Monthly Chart */}
+      <Card>
+        <CardHeader><CardTitle className="text-base">Atendimentos Mensais</CardTitle></CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={monthlyData}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis dataKey="month" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
+              <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="contacts" name="Novos Contatos" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="chatbot" name="Chatbot" fill="hsl(var(--warning))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="human" name="Humano" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2">
-        {/* Queue by Sector */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="h-4 w-4 text-warning" />
-              Fila de Espera por Setor
+              <Clock className="h-4 w-4 text-warning" /> Fila de Espera por Setor
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <p className="text-muted-foreground text-sm">Carregando...</p>
-            ) : queue.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Nenhum setor cadastrado.</p>
-            ) : (
+            {loading ? <p className="text-muted-foreground text-sm">Carregando...</p> : queue.length === 0 ? <p className="text-muted-foreground text-sm">Nenhum setor cadastrado.</p> : (
               <div className="space-y-3">
                 {queue.map((q) => (
                   <div key={q.sector_name} className="flex items-center justify-between">
                     <span className="text-sm font-medium">{q.sector_name}</span>
-                    <Badge variant={q.pending_count > 0 ? "destructive" : "secondary"}>
-                      {q.pending_count} na fila
-                    </Badge>
+                    <Badge variant={q.pending_count > 0 ? "destructive" : "secondary"}>{q.pending_count} na fila</Badge>
                   </div>
                 ))}
               </div>
@@ -147,20 +162,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Agent Status */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <CircleDot className="h-4 w-4 text-success" />
-              Status dos Atendentes
+              <CircleDot className="h-4 w-4 text-success" /> Status dos Atendentes
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <p className="text-muted-foreground text-sm">Carregando...</p>
-            ) : agents.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Nenhum atendente cadastrado.</p>
-            ) : (
+            {loading ? <p className="text-muted-foreground text-sm">Carregando...</p> : agents.length === 0 ? <p className="text-muted-foreground text-sm">Nenhum atendente cadastrado.</p> : (
               <div className="space-y-3">
                 {agents.map((a) => (
                   <div key={a.full_name} className="flex items-center justify-between">

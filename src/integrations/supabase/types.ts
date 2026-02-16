@@ -49,6 +49,53 @@ export type Database = {
           },
         ]
       }
+      ai_provider_config: {
+        Row: {
+          api_key: string | null
+          block_on_limit: boolean | null
+          company_id: string
+          created_at: string
+          id: string
+          model: string
+          monthly_limit: number
+          provider: string
+          updated_at: string
+          used_this_month: number
+        }
+        Insert: {
+          api_key?: string | null
+          block_on_limit?: boolean | null
+          company_id: string
+          created_at?: string
+          id?: string
+          model?: string
+          monthly_limit?: number
+          provider?: string
+          updated_at?: string
+          used_this_month?: number
+        }
+        Update: {
+          api_key?: string | null
+          block_on_limit?: boolean | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          model?: string
+          monthly_limit?: number
+          provider?: string
+          updated_at?: string
+          used_this_month?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_provider_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       broadcasts: {
         Row: {
           company_id: string
@@ -287,11 +334,14 @@ export type Database = {
           lgpd_terms_url: string | null
           logo_url: string | null
           max_ai_interactions: number | null
+          max_sectors: number | null
           max_users: number | null
           name: string
           plan: string | null
+          plan_id: string | null
           primary_color: string | null
           slug: string
+          storage_used_gb: number | null
           updated_at: string
         }
         Insert: {
@@ -302,11 +352,14 @@ export type Database = {
           lgpd_terms_url?: string | null
           logo_url?: string | null
           max_ai_interactions?: number | null
+          max_sectors?: number | null
           max_users?: number | null
           name: string
           plan?: string | null
+          plan_id?: string | null
           primary_color?: string | null
           slug: string
+          storage_used_gb?: number | null
           updated_at?: string
         }
         Update: {
@@ -317,14 +370,25 @@ export type Database = {
           lgpd_terms_url?: string | null
           logo_url?: string | null
           max_ai_interactions?: number | null
+          max_sectors?: number | null
           max_users?: number | null
           name?: string
           plan?: string | null
+          plan_id?: string | null
           primary_color?: string | null
           slug?: string
+          storage_used_gb?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "companies_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contacts: {
         Row: {
@@ -760,6 +824,83 @@ export type Database = {
           },
         ]
       }
+      module_permissions: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          module_name: string
+          permission_level: string
+          role_name: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          module_name: string
+          permission_level?: string
+          role_name: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          module_name?: string
+          permission_level?: string
+          role_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_permissions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          max_ai_interactions: number
+          max_sectors: number
+          max_users: number
+          max_whatsapp_credits: number
+          name: string
+          price: number | null
+          storage_limit_gb: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          max_ai_interactions?: number
+          max_sectors?: number
+          max_users?: number
+          max_whatsapp_credits?: number
+          name: string
+          price?: number | null
+          storage_limit_gb?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          max_ai_interactions?: number
+          max_sectors?: number
+          max_users?: number
+          max_whatsapp_credits?: number
+          name?: string
+          price?: number | null
+          storage_limit_gb?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       poll_questions: {
         Row: {
           id: string
@@ -1059,6 +1200,48 @@ export type Database = {
           },
         ]
       }
+      spy_logs: {
+        Row: {
+          company_id: string
+          conversation_id: string
+          ended_at: string | null
+          id: string
+          spy_user_id: string
+          started_at: string
+        }
+        Insert: {
+          company_id: string
+          conversation_id: string
+          ended_at?: string | null
+          id?: string
+          spy_user_id: string
+          started_at?: string
+        }
+        Update: {
+          company_id?: string
+          conversation_id?: string
+          ended_at?: string | null
+          id?: string
+          spy_user_id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spy_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spy_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           company_id: string
@@ -1168,6 +1351,56 @@ export type Database = {
             foreignKeyName: "webhooks_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_connections: {
+        Row: {
+          api_base_url: string | null
+          api_key: string | null
+          company_id: string
+          connection_status: string
+          created_at: string
+          id: string
+          instance_id: string | null
+          last_sync_at: string | null
+          provider: string
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          api_base_url?: string | null
+          api_key?: string | null
+          company_id: string
+          connection_status?: string
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          last_sync_at?: string | null
+          provider?: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          api_base_url?: string | null
+          api_key?: string | null
+          company_id?: string
+          connection_status?: string
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          last_sync_at?: string | null
+          provider?: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_connections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },

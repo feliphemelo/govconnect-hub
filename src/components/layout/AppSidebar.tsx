@@ -14,6 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageCircle,
+  ClipboardList,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,10 +26,12 @@ const navItems = [
   { to: "/chatbot", icon: Bot, label: "Chatbot" },
   { to: "/groups", icon: MessageCircle, label: "Grupos" },
   { to: "/broadcasts", icon: Send, label: "Disparos" },
+  { to: "/polls", icon: ClipboardList, label: "Enquetes" },
   { to: "/signatures", icon: FileSignature, label: "Assinaturas" },
   { to: "/reports", icon: BarChart3, label: "Relatórios" },
   { to: "/credits", icon: CreditCard, label: "Créditos" },
   { to: "/webhooks", icon: Webhook, label: "Webhooks" },
+  { to: "/superadmin", icon: ShieldCheck, label: "SuperAdmin" },
   { to: "/settings", icon: Settings, label: "Configurações" },
 ];
 
@@ -43,7 +47,6 @@ export function AppSidebar() {
         collapsed ? "w-16" : "w-60"
       )}
     >
-      {/* Logo */}
       <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
         {!collapsed && (
           <span className="text-lg font-bold tracking-tight text-sidebar-primary">
@@ -58,7 +61,6 @@ export function AppSidebar() {
         </button>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
         {navItems.map(({ to, icon: Icon, label }) => {
           const isActive = location.pathname.startsWith(to);
