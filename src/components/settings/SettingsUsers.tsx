@@ -5,10 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Settings2 } from "lucide-react";
+import { Settings2, UserPlus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +46,11 @@ export default function SettingsUsers() {
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
+
+  // New user form
+  const [showNewUser, setShowNewUser] = useState(false);
+  const [newUser, setNewUser] = useState({ email: "", password: "", full_name: "", role: "agent" });
+  const [creating, setCreating] = useState(false);
 
   const load = async () => {
     const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user!.id).maybeSingle();
@@ -96,9 +102,7 @@ export default function SettingsUsers() {
 
   const saveSectors = async () => {
     if (!editingUser || !companyId) return;
-    // Remove existing
     await supabase.from("user_sectors").delete().eq("user_id", editingUser.user_id);
-    // Insert new
     if (selectedSectors.length > 0) {
       await supabase.from("user_sectors").insert(
         selectedSectors.map((sid) => ({
@@ -119,6 +123,29 @@ export default function SettingsUsers() {
     );
   };
 
+  const createNewUser = async () => {
+    if (!newUser.email || !newUser.password || !newUser.full_name || !companyId) return;
+    setCreating(true);
+    const { data, error } = await supabase.functions.invoke("create-user", {
+      body: {
+        email: newUser.email,
+        password: newUser.password,
+        full_name: newUser.full_name,
+        company_id: companyId,
+        role: newUser.role,
+      },
+    });
+    if (error || data?.error) {
+      toast({ title: "Erro ao criar usuário", description: error?.message || data?.error, variant: "destructive" });
+    } else {
+      toast({ title: "Usuário criado com sucesso" });
+      setNewUser({ email: "", password: "", full_name: "", role: "agent" });
+      setShowNewUser(false);
+      load();
+    }
+    setCreating(false);
+  };
+
   const statusColor: Record<string, string> = {
     online: "bg-success",
     offline: "bg-muted-foreground",
@@ -128,7 +155,37 @@ export default function SettingsUsers() {
   return (
     <>
       <Card>
-        <CardHeader><CardTitle className="text-base">Usuários e Permissões</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Usuários e Permissões</CardTitle>
+          <Dialog open={showNewUser} onOpenChange={setShowNewUser}>
+            <DialogTrigger asChild>
+              <Button size="sm"><UserPlus className="h-4 w-4 mr-1" /> Novo Usuário</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Criar Usuário</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div><Label>Nome Completo</Label><Input value={newUser.full_name} onChange={e => setNewUser(p => ({ ...p, full_name: e.target.value }))} /></div>
+                <div><Label>E-mail</Label><Input type="email" value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} /></div>
+                <div><Label>Senha</Label><Input type="password" value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} minLength={6} /></div>
+                <div>
+                  <Label>Perfil</Label>
+                  <Select value={newUser.role} onValueChange={v => setNewUser(p => ({ ...p, role: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(roleLabels).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={createNewUser} className="w-full" disabled={creating || !newUser.email || !newUser.password || !newUser.full_name}>
+                  {creating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserPlus className="h-4 w-4 mr-1" />}
+                  Criar Usuário
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
