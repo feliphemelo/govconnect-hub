@@ -1,14 +1,100 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, MessageSquare, Bot, FileText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Users, MessageSquare, Bot, FileText, Clock, CircleDot } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
-const stats = [
-  { label: "Contatos", value: "1.234", icon: Users, color: "text-primary" },
-  { label: "Atendimentos Hoje", value: "56", icon: MessageSquare, color: "text-success" },
-  { label: "Via Chatbot", value: "128", icon: Bot, color: "text-info" },
-  { label: "Protocolos", value: "3.456", icon: FileText, color: "text-warning" },
-];
+interface DashboardStats {
+  totalContacts: number;
+  activeConversations: number;
+  closedToday: number;
+  totalProtocols: number;
+}
+
+interface QueueItem {
+  sector_name: string;
+  pending_count: number;
+}
+
+interface AgentStatus {
+  full_name: string;
+  status: string;
+  active_count: number;
+}
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats>({ totalContacts: 0, activeConversations: 0, closedToday: 0, totalProtocols: 0 });
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [agents, setAgents] = useState<AgentStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const [contactsRes, activeRes, closedRes, protocolsRes, sectorsRes, profilesRes] = await Promise.all([
+        supabase.from("contacts").select("id", { count: "exact", head: true }),
+        supabase.from("conversations").select("id", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("conversations").select("id", { count: "exact", head: true }).eq("status", "closed").gte("closed_at", new Date().toISOString().split("T")[0]),
+        supabase.from("conversations").select("id", { count: "exact", head: true }),
+        supabase.from("sectors").select("id, name").eq("is_active", true),
+        supabase.from("profiles").select("full_name, status, user_id").eq("is_active", true),
+      ]);
+
+      setStats({
+        totalContacts: contactsRes.count ?? 0,
+        activeConversations: activeRes.count ?? 0,
+        closedToday: closedRes.count ?? 0,
+        totalProtocols: protocolsRes.count ?? 0,
+      });
+
+      // Queue by sector
+      if (sectorsRes.data) {
+        const queueData: QueueItem[] = [];
+        for (const sector of sectorsRes.data) {
+          const { count } = await supabase
+            .from("conversations")
+            .select("id", { count: "exact", head: true })
+            .eq("sector_id", sector.id)
+            .in("status", ["pending", "waiting"]);
+          queueData.push({ sector_name: sector.name, pending_count: count ?? 0 });
+        }
+        setQueue(queueData);
+      }
+
+      // Agent statuses
+      if (profilesRes.data) {
+        const agentData: AgentStatus[] = [];
+        for (const p of profilesRes.data) {
+          const { count } = await supabase
+            .from("conversations")
+            .select("id", { count: "exact", head: true })
+            .eq("assigned_to", p.user_id)
+            .eq("status", "active");
+          agentData.push({ full_name: p.full_name, status: p.status ?? "offline", active_count: count ?? 0 });
+        }
+        setAgents(agentData);
+      }
+
+      setLoading(false);
+    };
+    load();
+  }, [user]);
+
+  const statCards = [
+    { label: "Contatos", value: stats.totalContacts, icon: Users, color: "text-primary" },
+    { label: "Atendimentos Ativos", value: stats.activeConversations, icon: MessageSquare, color: "text-success" },
+    { label: "Finalizados Hoje", value: stats.closedToday, icon: Bot, color: "text-info" },
+    { label: "Protocolos Gerados", value: stats.totalProtocols, icon: FileText, color: "text-warning" },
+  ];
+
+  const statusColor: Record<string, string> = {
+    online: "bg-success",
+    offline: "bg-muted-foreground",
+    busy: "bg-warning",
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -17,28 +103,76 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
+        {statCards.map((stat) => (
           <Card key={stat.label}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.label}
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
               <stat.icon className={`h-5 w-5 ${stat.color}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{stat.value}</div>
+              <div className="text-3xl font-bold">
+                {loading ? "..." : stat.value.toLocaleString("pt-BR")}
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="md:col-span-2">
+        {/* Queue by Sector */}
+        <Card>
           <CardHeader>
-            <CardTitle>Fila de Espera por Setor</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock className="h-4 w-4 text-warning" />
+              Fila de Espera por Setor
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">Nenhum atendimento na fila no momento.</p>
+            {loading ? (
+              <p className="text-muted-foreground text-sm">Carregando...</p>
+            ) : queue.length === 0 ? (
+              <p className="text-muted-foreground text-sm">Nenhum setor cadastrado.</p>
+            ) : (
+              <div className="space-y-3">
+                {queue.map((q) => (
+                  <div key={q.sector_name} className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{q.sector_name}</span>
+                    <Badge variant={q.pending_count > 0 ? "destructive" : "secondary"}>
+                      {q.pending_count} na fila
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Agent Status */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CircleDot className="h-4 w-4 text-success" />
+              Status dos Atendentes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <p className="text-muted-foreground text-sm">Carregando...</p>
+            ) : agents.length === 0 ? (
+              <p className="text-muted-foreground text-sm">Nenhum atendente cadastrado.</p>
+            ) : (
+              <div className="space-y-3">
+                {agents.map((a) => (
+                  <div key={a.full_name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${statusColor[a.status] ?? statusColor.offline}`} />
+                      <span className="text-sm font-medium">{a.full_name}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{a.active_count} ativos</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

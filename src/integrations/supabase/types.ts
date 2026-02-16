@@ -142,6 +142,129 @@ export type Database = {
         }
         Relationships: []
       }
+      contacts: {
+        Row: {
+          accepted_lgpd: boolean | null
+          avatar_url: string | null
+          company_id: string
+          created_at: string
+          email: string | null
+          id: string
+          is_blocked: boolean | null
+          metadata: Json | null
+          name: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_lgpd?: boolean | null
+          avatar_url?: string | null
+          company_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_blocked?: boolean | null
+          metadata?: Json | null
+          name: string
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_lgpd?: boolean | null
+          avatar_url?: string | null
+          company_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_blocked?: boolean | null
+          metadata?: Json | null
+          name?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          assigned_to: string | null
+          channel: string
+          close_message: string | null
+          closed_at: string | null
+          company_id: string
+          contact_id: string
+          created_at: string
+          id: string
+          nps_score: number | null
+          protocol: string
+          sector_id: string | null
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          channel?: string
+          close_message?: string | null
+          closed_at?: string | null
+          company_id: string
+          contact_id: string
+          created_at?: string
+          id?: string
+          nps_score?: number | null
+          protocol: string
+          sector_id?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          channel?: string
+          close_message?: string | null
+          closed_at?: string | null
+          company_id?: string
+          contact_id?: string
+          created_at?: string
+          id?: string
+          nps_score?: number | null
+          protocol?: string
+          sector_id?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       holidays: {
         Row: {
           company_id: string
@@ -173,6 +296,50 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string | null
+          conversation_id: string
+          created_at: string
+          id: string
+          is_read: boolean | null
+          media_type: string | null
+          media_url: string | null
+          sender_id: string | null
+          sender_type: string
+        }
+        Insert: {
+          content?: string | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          media_type?: string | null
+          media_url?: string | null
+          sender_id?: string | null
+          sender_type: string
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          media_type?: string | null
+          media_url?: string | null
+          sender_id?: string | null
+          sender_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
         ]
@@ -223,6 +390,48 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quick_replies: {
+        Row: {
+          company_id: string
+          content: string
+          created_at: string
+          id: string
+          sector_id: string | null
+          shortcut: string
+        }
+        Insert: {
+          company_id: string
+          content: string
+          created_at?: string
+          id?: string
+          sector_id?: string | null
+          shortcut: string
+        }
+        Update: {
+          company_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          sector_id?: string | null
+          shortcut?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_replies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quick_replies_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
             referencedColumns: ["id"]
           },
         ]
@@ -299,6 +508,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_protocol: { Args: { p_company_id: string }; Returns: string }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
