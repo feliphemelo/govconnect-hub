@@ -327,55 +327,73 @@ export type Database = {
       }
       companies: {
         Row: {
+          allow_unofficial_api: boolean | null
+          allowed_unofficial_engines: string[] | null
           created_at: string
           credits_balance: number | null
+          default_unofficial_engine: string | null
           id: string
           is_active: boolean | null
           lgpd_terms_url: string | null
+          login_logo_url: string | null
           logo_url: string | null
           max_ai_interactions: number | null
           max_sectors: number | null
           max_users: number | null
           name: string
+          official_api_mandatory: boolean | null
           plan: string | null
           plan_id: string | null
           primary_color: string | null
+          sidebar_logo_url: string | null
           slug: string
           storage_used_gb: number | null
           updated_at: string
         }
         Insert: {
+          allow_unofficial_api?: boolean | null
+          allowed_unofficial_engines?: string[] | null
           created_at?: string
           credits_balance?: number | null
+          default_unofficial_engine?: string | null
           id?: string
           is_active?: boolean | null
           lgpd_terms_url?: string | null
+          login_logo_url?: string | null
           logo_url?: string | null
           max_ai_interactions?: number | null
           max_sectors?: number | null
           max_users?: number | null
           name: string
+          official_api_mandatory?: boolean | null
           plan?: string | null
           plan_id?: string | null
           primary_color?: string | null
+          sidebar_logo_url?: string | null
           slug: string
           storage_used_gb?: number | null
           updated_at?: string
         }
         Update: {
+          allow_unofficial_api?: boolean | null
+          allowed_unofficial_engines?: string[] | null
           created_at?: string
           credits_balance?: number | null
+          default_unofficial_engine?: string | null
           id?: string
           is_active?: boolean | null
           lgpd_terms_url?: string | null
+          login_logo_url?: string | null
           logo_url?: string | null
           max_ai_interactions?: number | null
           max_sectors?: number | null
           max_users?: number | null
           name?: string
+          official_api_mandatory?: boolean | null
           plan?: string | null
           plan_id?: string | null
           primary_color?: string | null
+          sidebar_logo_url?: string | null
           slug?: string
           storage_used_gb?: number | null
           updated_at?: string
@@ -1401,6 +1419,98 @@ export type Database = {
             foreignKeyName: "whatsapp_connections_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_session_logs: {
+        Row: {
+          action: string
+          company_id: string
+          created_at: string
+          details: string | null
+          id: string
+          session_id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          company_id: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          session_id: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          company_id?: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          session_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_session_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_session_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_sessions: {
+        Row: {
+          company_id: string
+          created_at: string
+          engine_type: string
+          id: string
+          instance_name: string | null
+          last_activity: string | null
+          phone_number: string | null
+          qr_code: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          engine_type?: string
+          id?: string
+          instance_name?: string | null
+          last_activity?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          engine_type?: string
+          id?: string
+          instance_name?: string | null
+          last_activity?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
