@@ -1,21 +1,182 @@
+import { useEffect, useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BarChart3, Star, Users, Clock, Shield } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Reports() {
+  const { user } = useAuth();
+  const [npsData, setNpsData] = useState<{ avg: number; count: number; bySector: { name: string; avg: number; count: number }[] }>({ avg: 0, count: 0, bySector: [] });
+  const [agentStats, setAgentStats] = useState<{ name: string; total: number; active: number; status: string }[]>([]);
+  const [accessLogs, setAccessLogs] = useState<{ action: string; ip_address: string | null; created_at: string }[]>([]);
+  const [convStats, setConvStats] = useState({ total: 0, active: 0, pending: 0, closed: 0 });
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      // Conversation stats
+      const [total, active, pending, closed] = await Promise.all([
+        supabase.from("conversations").select("id", { count: "exact", head: true }),
+        supabase.from("conversations").select("id", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("conversations").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("conversations").select("id", { count: "exact", head: true }).eq("status", "closed"),
+      ]);
+      setConvStats({ total: total.count ?? 0, active: active.count ?? 0, pending: pending.count ?? 0, closed: closed.count ?? 0 });
+
+      // NPS
+      const { data: npsConvos } = await supabase
+        .from("conversations")
+        .select("nps_score, sector_id")
+        .not("nps_score", "is", null);
+      if (npsConvos && npsConvos.length > 0) {
+        const scores = npsConvos.map((c) => c.nps_score!);
+        const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+        const { data: sectors } = await supabase.from("sectors").select("id, name");
+        const bySector: { name: string; avg: number; count: number }[] = [];
+        if (sectors) {
+          for (const s of sectors) {
+            const sectorScores = npsConvos.filter((c) => c.sector_id === s.id).map((c) => c.nps_score!);
+            if (sectorScores.length > 0) {
+              bySector.push({ name: s.name, avg: sectorScores.reduce((a, b) => a + b, 0) / sectorScores.length, count: sectorScores.length });
+            }
+          }
+        }
+        setNpsData({ avg, count: npsConvos.length, bySector });
+      }
+
+      // Agent stats
+      const { data: profiles } = await supabase.from("profiles").select("full_name, status, user_id, is_active");
+      if (profiles) {
+        const stats = [];
+        for (const p of profiles) {
+          const { count: totalC } = await supabase.from("conversations").select("id", { count: "exact", head: true }).eq("assigned_to", p.user_id);
+          const { count: activeC } = await supabase.from("conversations").select("id", { count: "exact", head: true }).eq("assigned_to", p.user_id).eq("status", "active");
+          stats.push({ name: p.full_name, total: totalC ?? 0, active: activeC ?? 0, status: p.status ?? "offline" });
+        }
+        setAgentStats(stats);
+      }
+
+      // Access logs
+      const { data: logs } = await supabase.from("access_logs").select("action, ip_address, created_at").order("created_at", { ascending: false }).limit(50);
+      setAccessLogs(logs ?? []);
+    };
+    load();
+  }, [user]);
+
+  const statusColor: Record<string, string> = { online: "bg-success", offline: "bg-muted-foreground", busy: "bg-warning" };
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Relatórios</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            Analytics
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">NPS, produtividade e logs de acesso.</p>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="overview">
+        <TabsList className="grid w-full grid-cols-4 max-w-lg">
+          <TabsTrigger value="overview" className="gap-1.5 text-xs"><BarChart3 className="h-3.5 w-3.5" /> Geral</TabsTrigger>
+          <TabsTrigger value="nps" className="gap-1.5 text-xs"><Star className="h-3.5 w-3.5" /> NPS</TabsTrigger>
+          <TabsTrigger value="agents" className="gap-1.5 text-xs"><Users className="h-3.5 w-3.5" /> Atendentes</TabsTrigger>
+          <TabsTrigger value="logs" className="gap-1.5 text-xs"><Shield className="h-3.5 w-3.5" /> Acessos</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview">
+          <div className="grid gap-4 md:grid-cols-4">
+            {[
+              { label: "Total de Protocolos", value: convStats.total, color: "text-primary" },
+              { label: "Ativos", value: convStats.active, color: "text-success" },
+              { label: "Aguardando", value: convStats.pending, color: "text-warning" },
+              { label: "Finalizados", value: convStats.closed, color: "text-info" },
+            ].map((s) => (
+              <Card key={s.label}>
+                <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{s.label}</CardTitle></CardHeader>
+                <CardContent><div className={`text-3xl font-bold ${s.color}`}>{s.value.toLocaleString("pt-BR")}</div></CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="nps">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Média Geral NPS</CardTitle></CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold text-primary">{npsData.avg ? npsData.avg.toFixed(1) : "—"}</div>
+                <p className="text-xs text-muted-foreground mt-1">{npsData.count} avaliações</p>
+              </CardContent>
+            </Card>
+          </div>
+          {npsData.bySector.length > 0 && (
+            <Card className="mt-4">
+              <CardHeader><CardTitle className="text-base">NPS por Setor</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader><TableRow><TableHead>Setor</TableHead><TableHead>Média</TableHead><TableHead>Avaliações</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {npsData.bySector.map((s) => (
+                      <TableRow key={s.name}>
+                        <TableCell className="font-medium">{s.name}</TableCell>
+                        <TableCell><Badge variant={s.avg >= 7 ? "default" : s.avg >= 5 ? "secondary" : "destructive"}>{s.avg.toFixed(1)}</Badge></TableCell>
+                        <TableCell>{s.count}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="agents">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Panorama dos Atendentes</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Status</TableHead><TableHead>Ativos</TableHead><TableHead>Total</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {agentStats.length === 0 ? (
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Sem dados.</TableCell></TableRow>
+                  ) : agentStats.map((a) => (
+                    <TableRow key={a.name}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 rounded-full ${statusColor[a.status] ?? statusColor.offline}`} />
+                          <span className="font-medium">{a.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell><Badge variant="outline">{a.status}</Badge></TableCell>
+                      <TableCell>{a.active}</TableCell>
+                      <TableCell>{a.total}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="logs">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Logs de Acesso</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader><TableRow><TableHead>Ação</TableHead><TableHead>IP</TableHead><TableHead>Data/Hora</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {accessLogs.length === 0 ? (
+                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground">Sem logs.</TableCell></TableRow>
+                  ) : accessLogs.map((l, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-medium">{l.action}</TableCell>
+                      <TableCell className="text-muted-foreground font-mono text-xs">{l.ip_address || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{new Date(l.created_at).toLocaleString("pt-BR")}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
