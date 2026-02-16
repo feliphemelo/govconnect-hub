@@ -47,7 +47,7 @@ export default function SettingsWhatsAppSessions() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showLogs, setShowLogs] = useState<string | null>(null);
-  const [newEngine, setNewEngine] = useState("baileys");
+  const [newEngine, setNewEngine] = useState("libzapitu");
   const [newName, setNewName] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -187,8 +187,8 @@ export default function SettingsWhatsAppSessions() {
                   <Select value={newEngine} onValueChange={setNewEngine}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="baileys">Baileys</SelectItem>
                       <SelectItem value="libzapitu">LibZapitu</SelectItem>
+                      <SelectItem value="baileys">Baileys</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

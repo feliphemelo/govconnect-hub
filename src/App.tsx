@@ -23,6 +23,7 @@ import Polls from "./pages/Polls";
 import SuperAdmin from "./pages/SuperAdmin";
 import SettingsPage from "./pages/SettingsPage";
 import Profile from "./pages/Profile";
+import Connections from "./pages/Connections";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,7 @@ const App = () => (
                 <Route path="/superadmin" element={<SuperAdmin />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/connections" element={<Connections />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

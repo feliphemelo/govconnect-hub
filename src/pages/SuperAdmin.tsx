@@ -193,22 +193,18 @@ export default function SuperAdmin() {
 
   const createUser = async () => {
     if (!newUser.email || !newUser.password || !newUser.full_name || !newUser.company_id) return;
-    const { data, error } = await supabase.auth.signUp({
-      email: newUser.email,
-      password: newUser.password,
-      options: {
-        data: {
-          full_name: newUser.full_name,
-          company_id: newUser.company_id,
-        },
+    const { data, error } = await supabase.functions.invoke("create-user", {
+      body: {
+        email: newUser.email,
+        password: newUser.password,
+        full_name: newUser.full_name,
+        company_id: newUser.company_id,
+        role: newUser.role,
       },
     });
-    if (error) {
-      toast({ title: "Erro ao criar usuário", description: error.message, variant: "destructive" });
+    if (error || data?.error) {
+      toast({ title: "Erro ao criar usuário", description: error?.message || data?.error, variant: "destructive" });
       return;
-    }
-    if (data.user && newUser.role !== "agent") {
-      await supabase.from("user_roles").update({ role: newUser.role } as any).eq("user_id", data.user.id);
     }
     toast({ title: "Usuário criado com sucesso" });
     setNewUser({ email: "", password: "", full_name: "", company_id: "", role: "agent" });

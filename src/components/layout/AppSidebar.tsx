@@ -16,6 +16,7 @@ import {
   MessageCircle,
   ClipboardList,
   ShieldCheck,
+  Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -31,6 +32,7 @@ const navItems = [
   { to: "/signatures", icon: FileSignature, label: "Assinaturas", minRole: null },
   { to: "/reports", icon: BarChart3, label: "Relatórios", minRole: null },
   { to: "/credits", icon: CreditCard, label: "Créditos", minRole: null },
+  { to: "/connections", icon: Plug, label: "Conexões", minRole: null },
   { to: "/webhooks", icon: Webhook, label: "Webhooks", minRole: "admin" as const },
   { to: "/superadmin", icon: ShieldCheck, label: "SuperAdmin", minRole: "admin" as const },
   { to: "/settings", icon: Settings, label: "Configurações", minRole: null },
