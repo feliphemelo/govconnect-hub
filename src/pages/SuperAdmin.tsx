@@ -152,6 +152,45 @@ export default function SuperAdmin() {
     loadAll();
   };
 
+  const impersonateTenant = async (companyId: string, companyName: string) => {
+    // Find an admin user linked to this company
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, full_name")
+      .eq("company_id", companyId);
+    
+    if (!profiles || profiles.length === 0) {
+      toast({ title: "Nenhum usuário encontrado nesta empresa", variant: "destructive" });
+      return;
+    }
+
+    // Find admin role user
+    let targetUserId: string | null = null;
+    let targetName = "";
+    for (const p of profiles) {
+      const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", p.user_id).maybeSingle();
+      if (roleData?.role === "admin") {
+        targetUserId = p.user_id;
+        targetName = p.full_name;
+        break;
+      }
+    }
+
+    if (!targetUserId) {
+      // Fallback to first user
+      targetUserId = profiles[0].user_id;
+      targetName = profiles[0].full_name;
+    }
+
+    // Store impersonation info in sessionStorage
+    sessionStorage.setItem("impersonate_company_id", companyId);
+    sessionStorage.setItem("impersonate_company_name", companyName);
+    sessionStorage.setItem("impersonate_user_name", targetName);
+    
+    toast({ title: `Acessando como ${targetName}`, description: `Empresa: ${companyName}. Navegue para /dashboard para ver como admin do tenant.` });
+    window.location.href = "/dashboard";
+  };
+
   const createUser = async () => {
     if (!newUser.email || !newUser.password || !newUser.full_name || !newUser.company_id) return;
     const { data, error } = await supabase.auth.signUp({
@@ -233,7 +272,7 @@ export default function SuperAdmin() {
                       <TableCell><Switch checked={t.is_active} onCheckedChange={() => toggleTenant(t.id, t.is_active)} /></TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Impersonate">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Acessar como Admin" onClick={() => impersonateTenant(t.id, t.name)}>
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Excluir" onClick={() => deleteTenant(t.id)}>

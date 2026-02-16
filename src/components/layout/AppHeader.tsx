@@ -1,4 +1,5 @@
 import { Bell, LogOut, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export function AppHeader() {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const initials = user?.email
     ? user.email.substring(0, 2).toUpperCase()
@@ -51,7 +53,7 @@ export function AppHeader() {
               {user?.email}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/profile")}>
               <User className="mr-2 h-4 w-4" />
               Perfil
             </DropdownMenuItem>
