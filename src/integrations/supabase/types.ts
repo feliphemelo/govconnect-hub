@@ -49,6 +49,62 @@ export type Database = {
           },
         ]
       }
+      broadcasts: {
+        Row: {
+          company_id: string
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          media_url: string | null
+          name: string
+          recipient_count: number | null
+          scheduled_at: string | null
+          sent_at: string | null
+          status: string
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          company_id: string
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          media_url?: string | null
+          name: string
+          recipient_count?: number | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          company_id?: string
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          media_url?: string | null
+          name?: string
+          recipient_count?: number | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcasts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_hours: {
         Row: {
           close_time: string
@@ -90,6 +146,134 @@ export type Database = {
             columns: ["sector_id"]
             isOneToOne: false
             referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_config: {
+        Row: {
+          ai_enabled: boolean | null
+          ai_mode: string | null
+          ai_name: string | null
+          ai_personality: string | null
+          ai_trigger_command: string | null
+          company_id: string
+          created_at: string
+          error_message: string | null
+          farewell_message: string | null
+          id: string
+          public_notice: string | null
+          public_notice_expires_at: string | null
+          return_message: string | null
+          updated_at: string
+          welcome_message: string | null
+        }
+        Insert: {
+          ai_enabled?: boolean | null
+          ai_mode?: string | null
+          ai_name?: string | null
+          ai_personality?: string | null
+          ai_trigger_command?: string | null
+          company_id: string
+          created_at?: string
+          error_message?: string | null
+          farewell_message?: string | null
+          id?: string
+          public_notice?: string | null
+          public_notice_expires_at?: string | null
+          return_message?: string | null
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Update: {
+          ai_enabled?: boolean | null
+          ai_mode?: string | null
+          ai_name?: string | null
+          ai_personality?: string | null
+          ai_trigger_command?: string | null
+          company_id?: string
+          created_at?: string
+          error_message?: string | null
+          farewell_message?: string | null
+          id?: string
+          public_notice?: string | null
+          public_notice_expires_at?: string | null
+          return_message?: string | null
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_menus: {
+        Row: {
+          action_target: string | null
+          action_type: string | null
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          media_type: string | null
+          media_url: string | null
+          menu_type: string
+          message: string | null
+          parent_id: string | null
+          sort_order: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_target?: string | null
+          action_type?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          media_type?: string | null
+          media_url?: string | null
+          menu_type?: string
+          message?: string | null
+          parent_id?: string | null
+          sort_order?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_target?: string | null
+          action_type?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          media_type?: string | null
+          media_url?: string | null
+          menu_type?: string
+          message?: string | null
+          parent_id?: string | null
+          sort_order?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_menus_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbot_menus_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_menus"
             referencedColumns: ["id"]
           },
         ]
@@ -265,6 +449,197 @@ export type Database = {
           },
         ]
       }
+      credit_transactions: {
+        Row: {
+          amount: number
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          reference_id: string | null
+          type: string
+        }
+        Insert: {
+          amount: number
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          reference_id?: string | null
+          type: string
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          reference_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      form_questions: {
+        Row: {
+          form_id: string
+          id: string
+          options: Json | null
+          question: string
+          question_type: string
+          sort_order: number | null
+        }
+        Insert: {
+          form_id: string
+          id?: string
+          options?: Json | null
+          question: string
+          question_type?: string
+          sort_order?: number | null
+        }
+        Update: {
+          form_id?: string
+          id?: string
+          options?: Json | null
+          question?: string
+          question_type?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_questions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forms: {
+        Row: {
+          company_id: string
+          created_at: string
+          forward_email: string | null
+          forward_phone: string | null
+          id: string
+          is_active: boolean | null
+          is_anonymous: boolean | null
+          name: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          forward_email?: string | null
+          forward_phone?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_anonymous?: boolean | null
+          name: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          forward_email?: string | null
+          forward_phone?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_anonymous?: boolean | null
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forms_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_members: {
+        Row: {
+          contact_id: string
+          group_id: string
+          id: string
+          joined_at: string
+        }
+        Insert: {
+          contact_id: string
+          group_id: string
+          id?: string
+          joined_at?: string
+        }
+        Update: {
+          contact_id?: string
+          group_id?: string
+          id?: string
+          joined_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          invite_url: string | null
+          is_open: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          invite_url?: string | null
+          is_open?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          invite_url?: string | null
+          is_open?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "groups_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       holidays: {
         Row: {
           company_id: string
@@ -293,6 +668,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "holidays_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_base: {
+        Row: {
+          category: string | null
+          company_id: string
+          content: string
+          created_at: string
+          id: string
+          source_type: string | null
+          source_url: string | null
+          title: string
+        }
+        Insert: {
+          category?: string | null
+          company_id: string
+          content: string
+          created_at?: string
+          id?: string
+          source_type?: string | null
+          source_url?: string | null
+          title: string
+        }
+        Update: {
+          category?: string | null
+          company_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          source_type?: string | null
+          source_url?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_base_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -340,6 +756,118 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poll_questions: {
+        Row: {
+          id: string
+          options: Json | null
+          poll_id: string
+          question: string
+          question_type: string
+          sort_order: number | null
+        }
+        Insert: {
+          id?: string
+          options?: Json | null
+          poll_id: string
+          question: string
+          question_type?: string
+          sort_order?: number | null
+        }
+        Update: {
+          id?: string
+          options?: Json | null
+          poll_id?: string
+          question?: string
+          question_type?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poll_questions_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poll_votes: {
+        Row: {
+          answer: string
+          contact_id: string | null
+          created_at: string
+          id: string
+          question_id: string
+        }
+        Insert: {
+          answer: string
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          question_id: string
+        }
+        Update: {
+          answer?: string
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poll_votes_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poll_votes_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "poll_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polls: {
+        Row: {
+          company_id: string
+          created_at: string
+          ends_at: string | null
+          id: string
+          is_active: boolean | null
+          starts_at: string
+          title: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          starts_at?: string
+          title: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          starts_at?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polls_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -474,6 +1002,63 @@ export type Database = {
           },
         ]
       }
+      signature_documents: {
+        Row: {
+          company_id: string
+          contact_id: string | null
+          created_at: string
+          document_url: string
+          id: string
+          qr_code: string | null
+          sent_at: string | null
+          signed_at: string | null
+          signed_document_url: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          company_id: string
+          contact_id?: string | null
+          created_at?: string
+          document_url: string
+          id?: string
+          qr_code?: string | null
+          sent_at?: string | null
+          signed_at?: string | null
+          signed_document_url?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          company_id?: string
+          contact_id?: string | null
+          created_at?: string
+          document_url?: string
+          id?: string
+          qr_code?: string | null
+          sent_at?: string | null
+          signed_at?: string | null
+          signed_document_url?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_documents_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           company_id: string
@@ -496,6 +1081,91 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_logs: {
+        Row: {
+          executed_at: string
+          id: string
+          request_body: Json | null
+          response_body: string | null
+          status_code: number | null
+          webhook_id: string
+        }
+        Insert: {
+          executed_at?: string
+          id?: string
+          request_body?: Json | null
+          response_body?: string | null
+          status_code?: number | null
+          webhook_id: string
+        }
+        Update: {
+          executed_at?: string
+          id?: string
+          request_body?: Json | null
+          response_body?: string | null
+          status_code?: number | null
+          webhook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "webhooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhooks: {
+        Row: {
+          company_id: string
+          created_at: string
+          direction: string
+          headers: Json | null
+          id: string
+          is_active: boolean | null
+          method: string
+          name: string
+          secret_token: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          direction?: string
+          headers?: Json | null
+          id?: string
+          is_active?: boolean | null
+          method?: string
+          name: string
+          secret_token?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          direction?: string
+          headers?: Json | null
+          id?: string
+          is_active?: boolean | null
+          method?: string
+          name?: string
+          secret_token?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhooks_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
