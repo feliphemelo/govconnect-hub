@@ -50,6 +50,124 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # ============================================
+# VERIFICAR E LIMPAR INSTALACAO ANTERIOR
+# ============================================
+
+PROJECT_DIR="/var/www/govchat"
+
+if [ -d "$PROJECT_DIR" ] || \
+   sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw govchat || \
+   [ -f /etc/nginx/sites-enabled/govchat ]; then
+    
+    log_warning "Instalacao anterior detectada!"
+    echo ""
+    echo "Foi encontrada uma instalacao anterior do GovChat."
+    echo "Para continuar, e necessario fazer uma limpeza completa."
+    echo ""
+    echo "O que sera removido:"
+    echo "  - Diretorio: $PROJECT_DIR"
+    echo "  - Bancos de dados: govchat*"
+    echo "  - Usuarios PostgreSQL: govchat*"
+    echo "  - Configuracao Nginx: /etc/nginx/sites-*/govchat"
+    echo "  - Certificados SSL (se existirem)"
+    echo "  - Comandos globais: govchat-*"
+    echo "  - Arquivos de credenciais"
+    echo ""
+    read -p "Deseja fazer a limpeza completa? [y/N] " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log_error "Instalacao cancelada. Remova manualmente a instalacao anterior."
+    fi
+    
+    log_info "Iniciando limpeza profunda..."
+    
+    # 1. Parar servicos
+    log_info "Parando servicos..."
+    systemctl stop nginx 2>/dev/null || true
+    
+    # 2. Remover diretorio do projeto
+    if [ -d "$PROJECT_DIR" ]; then
+        log_info "Removendo diretorio do projeto..."
+        rm -rf "$PROJECT_DIR"
+        log_success "Diretorio removido"
+    fi
+    
+    # 3. Remover bancos de dados
+    log_info "Removendo bancos de dados..."
+    for db in $(sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -E 'govchat' | tr -d ' '); do
+        if [ ! -z "$db" ]; then
+            log_info "Removendo banco: $db"
+            sudo -u postgres psql -c "DROP DATABASE IF EXISTS $db;" 2>/dev/null || true
+        fi
+    done
+    log_success "Bancos de dados removidos"
+    
+    # 4. Remover usuarios PostgreSQL
+    log_info "Removendo usuarios PostgreSQL..."
+    for user in $(sudo -u postgres psql -c "\du" | grep -E 'govchat' | awk '{print $1}'); do
+        if [ ! -z "$user" ]; then
+            log_info "Removendo usuario: $user"
+            sudo -u postgres psql -c "DROP USER IF EXISTS $user;" 2>/dev/null || true
+        fi
+    done
+    log_success "Usuarios PostgreSQL removidos"
+    
+    # 5. Limpar pg_hba.conf
+    log_info "Limpando configuracao PostgreSQL..."
+    PG_VERSION=$(ls /etc/postgresql/ 2>/dev/null | head -1)
+    if [ ! -z "$PG_VERSION" ]; then
+        PG_HBA="/etc/postgresql/$PG_VERSION/main/pg_hba.conf"
+        if [ -f "$PG_HBA" ]; then
+            sed -i '/govchat/d' "$PG_HBA"
+            systemctl restart postgresql 2>/dev/null || true
+        fi
+    fi
+    log_success "Configuracao PostgreSQL limpa"
+    
+    # 6. Remover configuracao Nginx
+    log_info "Removendo configuracao Nginx..."
+    rm -f /etc/nginx/sites-enabled/govchat 2>/dev/null || true
+    rm -f /etc/nginx/sites-available/govchat 2>/dev/null || true
+    log_success "Configuracao Nginx removida"
+    
+    # 7. Remover certificados SSL
+    log_info "Removendo certificados SSL..."
+    certbot delete --cert-name govchat 2>/dev/null || true
+    log_success "Certificados SSL removidos"
+    
+    # 8. Remover comandos globais
+    log_info "Removendo comandos globais..."
+    rm -f /usr/local/bin/govchat-* 2>/dev/null || true
+    log_success "Comandos globais removidos"
+    
+    # 9. Remover backups antigos
+    log_info "Removendo backups antigos..."
+    rm -rf /var/backups/govchat 2>/dev/null || true
+    log_success "Backups removidos"
+    
+    # 10. Remover logs customizados
+    log_info "Removendo logs..."
+    rm -f /var/log/nginx/govchat*.log 2>/dev/null || true
+    log_success "Logs removidos"
+    
+    # 11. Limpar caches
+    log_info "Limpando caches..."
+    rm -rf /tmp/govchat* 2>/dev/null || true
+    rm -rf /tmp/migrations* 2>/dev/null || true
+    log_success "Caches limpos"
+    
+    # 12. Reiniciar Nginx
+    log_info "Reiniciando Nginx..."
+    nginx -t 2>/dev/null && systemctl restart nginx 2>/dev/null || true
+    log_success "Nginx reiniciado"
+    
+    echo ""
+    log_success "Limpeza completa concluida!"
+    echo ""
+    sleep 2
+fi
+
+# ============================================
 # COLETA DE INFORMACOES
 # ============================================
 
