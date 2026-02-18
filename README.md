@@ -11,7 +11,7 @@ Sistema completo de atendimento via WhatsApp para órgãos governamentais, com c
 
 ## 🚀 Instalação Rápida em VPS
 
-### Instalação com 1 comando (recomendado)
+### Opção 1: Com Supabase Cloud (Recomendado para começar)
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install.sh | sudo bash
@@ -23,6 +23,22 @@ curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/inst
 ```
 
 **Tempo de instalação:** ~10 minutos
+
+### Opção 2: Com PostgreSQL Local (Auto-hospedado)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install-local-db.sh | sudo bash
+```
+
+**Com domínio:**
+```bash
+curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install-local-db.sh | sudo bash -s seu-dominio.gov.br
+```
+
+**Tempo de instalação:** ~15 minutos  
+**Vantagens:** Controle total, sem custos cloud, dados 100% locais
+
+📚 **[Guia Completo PostgreSQL Local](docs/DEPLOY_POSTGRESQL.md)**
 
 ---
 
