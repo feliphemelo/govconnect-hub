@@ -293,14 +293,11 @@ log_success "Backend .env criado"
 # Executar migrations
 log_info "Executando migrations do banco..."
 
-# Auth schema
-PGPASSWORD=$DB_PASSWORD psql -h localhost -U $DB_USER -d $DB_NAME -f migrations/001_auth_schema.sql
-
-# Supabase migrations
-for file in ../supabase/migrations/*.sql; do
+# Backend migrations (clean PostgreSQL, no Supabase)
+for file in migrations/*.sql; do
     if [ -f "$file" ]; then
         log_info "Executando $(basename $file)..."
-        PGPASSWORD=$DB_PASSWORD psql -h localhost -U $DB_USER -d $DB_NAME -f "$file" 2>&1 | grep -v "already exists" || true
+        PGPASSWORD=$DB_PASSWORD psql -h localhost -U $DB_USER -d $DB_NAME -f "$file" 2>&1 || true
     fi
 done
 
