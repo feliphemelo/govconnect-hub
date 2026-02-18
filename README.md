@@ -13,16 +13,25 @@ Sistema completo de atendimento via WhatsApp para órgãos governamentais, com c
 
 ### Opção 1: NextPlan (Pré-configurado) 🌟
 
+**Método 1: Download Direto** ⚡ (RECOMENDADO)
+```bash
+wget https://github.com/feliphemelo/govconnect-hub/raw/main/install-nextplan.sh
+chmod +x install-nextplan.sh
+sudo ./install-nextplan.sh
+```
+
+**Método 2: One-liner** (se raw do GitHub estiver disponível)
 ```bash
 curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install-nextplan.sh | sudo bash
 ```
 
 **Configuração:**
 - Domínio: `atendimento.nextplan.tec.br`
-- Superadmin: `feliphe@nextplan.tec.br`
+- Superadmin: `feliphe@nextplan.tec.br` / `Admin@2026`
 - PostgreSQL local incluído
+- Empresa NextPlan Tecnologia (Enterprise)
 
-📚 **[Guia NextPlan](INSTALL_NEXTPLAN.md)**
+📚 **[Guia NextPlan](INSTALL_NEXTPLAN.md)** | ⚠️ **[Problemas? Ver soluções](INSTALL_NEXTPLAN_FIX.md)**
 
 ---
 
