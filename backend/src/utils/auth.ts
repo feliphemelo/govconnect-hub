@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { JWTPayload } from '../types';
 
@@ -14,7 +14,10 @@ export const comparePassword = async (password: string, hash: string): Promise<b
 };
 
 export const generateToken = (payload: JWTPayload): string => {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  const options: SignOptions = {
+    expiresIn: JWT_EXPIRES_IN as string | number
+  };
+  return jwt.sign(payload, JWT_SECRET, options);
 };
 
 export const verifyToken = (token: string): JWTPayload | null => {
