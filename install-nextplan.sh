@@ -76,7 +76,8 @@ echo "  Superadmin: $ADMIN_EMAIL"
 echo ""
 
 # Confirmacao
-read -p "$(echo -e ${YELLOW}Deseja continuar com a instalacao? [y/N] ${NC})" -n 1 -r
+echo -e -n "${YELLOW}Deseja continuar com a instalacao? [y/N] ${NC}"
+read -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Instalacao cancelada."
