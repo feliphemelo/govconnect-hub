@@ -11,53 +11,38 @@ Sistema completo de atendimento via WhatsApp para órgãos governamentais, com c
 
 ## 🚀 Instalação Rápida em VPS
 
-### Opção 1: NextPlan (Pré-configurado) 🌟
+### Instalador Interativo (Recomendado) ⭐
 
-**Método 1: Download Direto** ⚡ (RECOMENDADO)
+O instalador irá solicitar:
+- Domínio do sistema
+- Nome da empresa
+- Email e senha do administrador
+- Configuração automática de SSL/HTTPS
+
 ```bash
-wget https://github.com/feliphemelo/govconnect-hub/raw/main/install-nextplan.sh
-chmod +x install-nextplan.sh
-sudo ./install-nextplan.sh
+wget https://github.com/feliphemelo/govconnect-hub/raw/main/install.sh
+chmod +x install.sh
+sudo ./install.sh
 ```
 
-**Método 2: One-liner** (se raw do GitHub estiver disponível)
-```bash
-curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install-nextplan.sh | sudo bash
-```
+**Recursos:**
+- ✅ Instalação interativa (solicita informações)
+- ✅ PostgreSQL local incluído
+- ✅ SSL/HTTPS automático (Let's Encrypt)
+- ✅ Sem credenciais hardcoded
+- ✅ Backup automático configurado
+- ✅ Comandos de gerenciamento
 
-**Configuração:**
-- Domínio: `atendimento.nextplan.tec.br`
-- Superadmin: `feliphe@nextplan.tec.br` / `Admin@2026`
-- PostgreSQL local incluído
-- Empresa NextPlan Tecnologia (Enterprise)
+**Tempo de instalação:** ~15 minutos
 
-📚 **[Guia NextPlan](INSTALL_NEXTPLAN.md)** | ⚠️ **[Problemas? Ver soluções](INSTALL_NEXTPLAN_FIX.md)**
+📚 **[Guia Completo](docs/DEPLOY_VPS.md)** | ⚠️ **[Troubleshooting](TROUBLESHOOTING_SITE.md)**
 
 ---
 
-### Opção 2: Com Supabase Cloud (Recomendado para começar)
-
-```bash
-curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install.sh | sudo bash
-```
-
-**Com domínio:**
-```bash
-curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install.sh | sudo bash -s seu-dominio.gov.br
-```
-
-**Tempo de instalação:** ~10 minutos
-
----
-
-### Opção 3: Com PostgreSQL Local (Auto-hospedado)
+### Opção 2: Com PostgreSQL Local (Instalador Antigo)
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install-local-db.sh | sudo bash
-```
-
-**Com domínio:**
-```bash
 curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install-local-db.sh | sudo bash -s seu-dominio.gov.br
 ```
 

@@ -1,339 +1,494 @@
 #!/bin/bash
 #
-# GovChat - Instalador Rápido para VPS
-# 
-# Uso:
-#   curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install.sh | bash
+# GovChat - Instalador Interativo
+# Sistema de Atendimento ao Cidadão
 #
-# Ou com domínio:
-#   curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install.sh | bash -s seu-dominio.gov.br
+# Uso:
+#   wget https://github.com/feliphemelo/govconnect-hub/raw/main/install.sh
+#   chmod +x install.sh
+#   sudo ./install.sh
 #
 
 set -e
 
-# Cores para output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-MAGENTA='\033[0;35m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+# Cores desabilitadas para compatibilidade
+RED=''
+GREEN=''
+YELLOW=''
+BLUE=''
+CYAN=''
+NC=''
 
-# Configurações
-REPO_URL="https://github.com/feliphemelo/govconnect-hub.git"
-PROJECT_DIR="/var/www/govchat"
-DOMAIN=${1:-""}
-
-# Funções de log
-log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
-log_warning() { echo -e "${YELLOW}[⚠]${NC} $1"; }
-log_error() { echo -e "${RED}[✗]${NC} $1"; exit 1; }
+# Funcoes de log
+log_info() { echo "[INFO] $1"; }
+log_success() { echo "[OK] $1"; }
+log_warning() { echo "[WARNING] $1"; }
+log_error() { echo "[ERROR] $1"; exit 1; }
 
 # Banner
 clear
-echo -e "${CYAN}"
 cat << "EOF"
-   ____            ____ _           _   
-  / ___| _____   _/ ___| |__   __ _| |_ 
- | |  _ / _ \ \ / / |   | '_ \ / _` | __|
- | |_| | (_) \ V /| |___| | | | (_| | |_ 
-  \____|\___/ \_/  \____|_| |_|\__,_|\__|
+   _____           _____ _           _   
+  / ____|         / ____| |         | |  
+ | |  __  _____  | |    | |__   __ _| |_ 
+ | | |_ |/ _ \ \ | |    | '_ \ / _` | __|
+ | |__| | (_) \ \| |____| | | | (_| | |_ 
+  \_____|\___/ \_\\_____|_| |_|\__,_|\__|
                                           
-    Sistema de Atendimento ao Cidadão
+    Sistema de Atendimento ao Cidadao
+    Instalador Interativo v2.0
 EOF
-echo -e "${NC}"
+echo ""
 echo "=========================================="
-echo "  🚀 Instalador Automático - VPS"
+echo "  Instalacao Automatica com PostgreSQL"
 echo "=========================================="
 echo ""
 
-# Verificar se é root ou tem sudo
-if [ "$EUID" -ne 0 ] && ! sudo -n true 2>/dev/null; then
-    log_error "Este script precisa de privilégios sudo. Execute: sudo bash install.sh"
+# Verificar se eh root
+if [ "$EUID" -ne 0 ]; then
+    log_error "Execute como root ou com sudo"
 fi
 
-# Informações
-log_info "Repositório: ${REPO_URL}"
-log_info "Destino: ${PROJECT_DIR}"
-if [ -n "$DOMAIN" ]; then
-    log_info "Domínio: ${DOMAIN}"
-else
-    log_warning "Nenhum domínio fornecido (SSL não será configurado)"
-fi
+# ============================================
+# COLETA DE INFORMACOES
+# ============================================
+
+log_info "Por favor, forneça as informações necessárias:"
 echo ""
 
-# Confirmação
-read -p "$(echo -e ${YELLOW}Deseja continuar com a instalação? [y/N] ${NC})" -n 1 -r
-echo
+# 1. Dominio
+while true; do
+    read -p "Dominio (ex: atendimento.exemplo.com.br): " DOMAIN
+    if [[ -z "$DOMAIN" ]]; then
+        echo "  [!] Dominio nao pode ser vazio"
+        continue
+    fi
+    # Verificar se tem formato valido
+    if [[ ! "$DOMAIN" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$ ]]; then
+        echo "  [!] Dominio invalido"
+        continue
+    fi
+    break
+done
+
+# 2. Nome da empresa
+while true; do
+    read -p "Nome da Empresa: " COMPANY_NAME
+    if [[ -z "$COMPANY_NAME" ]]; then
+        echo "  [!] Nome nao pode ser vazio"
+        continue
+    fi
+    break
+done
+
+# 3. Email do admin
+while true; do
+    read -p "Email do Administrador: " ADMIN_EMAIL
+    if [[ -z "$ADMIN_EMAIL" ]]; then
+        echo "  [!] Email nao pode ser vazio"
+        continue
+    fi
+    # Validar email basico
+    if [[ ! "$ADMIN_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+        echo "  [!] Email invalido"
+        continue
+    fi
+    break
+done
+
+# 4. Nome do admin
+read -p "Nome Completo do Administrador: " ADMIN_NAME
+if [[ -z "$ADMIN_NAME" ]]; then
+    ADMIN_NAME="Administrador"
+fi
+
+# 5. Senha do admin
+while true; do
+    read -s -p "Senha do Administrador (min 8 caracteres): " ADMIN_PASSWORD
+    echo ""
+    if [[ ${#ADMIN_PASSWORD} -lt 8 ]]; then
+        echo "  [!] Senha deve ter no minimo 8 caracteres"
+        continue
+    fi
+    read -s -p "Confirme a senha: " ADMIN_PASSWORD2
+    echo ""
+    if [[ "$ADMIN_PASSWORD" != "$ADMIN_PASSWORD2" ]]; then
+        echo "  [!] Senhas nao conferem"
+        continue
+    fi
+    break
+done
+
+# 6. Configuracao automatica do banco
+COMPANY_SLUG=$(echo "$COMPANY_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | sed 's/[^a-z0-9_]//g')
+DB_NAME="govchat_${COMPANY_SLUG}"
+DB_USER="govchat_user"
+DB_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+
+# Configuracoes fixas
+REPO_URL="https://github.com/feliphemelo/govconnect-hub.git"
+PROJECT_DIR="/var/www/govchat"
+
+echo ""
+log_info "Resumo da Instalacao:"
+echo "  Dominio:   $DOMAIN"
+echo "  Empresa:   $COMPANY_NAME"
+echo "  Email:     $ADMIN_EMAIL"
+echo "  Nome:      $ADMIN_NAME"
+echo "  Banco:     $DB_NAME"
+echo ""
+
+# Confirmacao final
+read -p "Continuar com a instalacao? [y/N] " -n 1 -r
+echo ""
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Instalação cancelada."
+    echo "Instalacao cancelada."
     exit 0
 fi
 echo ""
 
-# 1. Verificar sistema operacional
+# ============================================
+# INSTALACAO
+# ============================================
+
+# 1. Verificar sistema
 log_info "Verificando sistema operacional..."
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     if [[ "$ID" != "ubuntu" ]] || [[ ! "$VERSION_ID" =~ ^(22|23|24) ]]; then
-        log_warning "Este script foi testado apenas no Ubuntu 22.04+"
+        log_warning "Este script foi testado no Ubuntu 22.04+"
         log_warning "Sistema detectado: $PRETTY_NAME"
-        read -p "Deseja continuar mesmo assim? [y/N] " -n 1 -r
+        read -p "Continuar? [y/N] " -n 1 -r
         echo
         [[ ! $REPLY =~ ^[Yy]$ ]] && exit 1
     else
         log_success "Ubuntu $VERSION_ID detectado"
     fi
 else
-    log_warning "Não foi possível detectar o sistema operacional"
+    log_error "Sistema operacional nao suportado"
 fi
 
 # 2. Atualizar sistema
-log_info "Atualizando sistema (isso pode demorar)..."
-sudo apt-get update -qq || log_error "Falha ao atualizar pacotes"
-sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq
+log_info "Atualizando sistema..."
+apt update -qq
+DEBIAN_FRONTEND=noninteractive apt upgrade -y -qq
 log_success "Sistema atualizado"
 
-# 3. Instalar dependências
-log_info "Instalando dependências essenciais..."
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-    curl \
-    git \
-    build-essential \
-    nginx \
-    certbot \
-    python3-certbot-nginx \
-    ufw \
-    software-properties-common \
-    ca-certificates \
-    gnupg \
-    || log_error "Falha ao instalar dependências"
-log_success "Dependências instaladas"
+# 3. Instalar dependencias
+log_info "Instalando dependencias..."
+DEBIAN_FRONTEND=noninteractive apt install -y -qq \
+    curl wget git build-essential \
+    nginx certbot python3-certbot-nginx \
+    postgresql postgresql-contrib \
+    ufw
+log_success "Dependencias instaladas"
 
-# 4. Instalar Node.js v20
-log_info "Instalando Node.js v20 LTS..."
-if ! command -v node &> /dev/null || [[ $(node -v | cut -d'.' -f1 | sed 's/v//') -lt 18 ]]; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - > /dev/null 2>&1
-    sudo apt-get install -y nodejs || log_error "Falha ao instalar Node.js"
+# 4. Configurar PostgreSQL
+log_info "Configurando PostgreSQL..."
+sudo -u postgres psql -c "CREATE DATABASE $DB_NAME;" 2>/dev/null || true
+sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" 2>/dev/null || true
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;"
+sudo -u postgres psql -c "ALTER DATABASE $DB_NAME OWNER TO $DB_USER;"
+sudo -u postgres psql -d "$DB_NAME" -c "GRANT ALL ON SCHEMA public TO $DB_USER;"
+sudo -u postgres psql -d "$DB_NAME" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $DB_USER;"
+
+# Configurar pg_hba.conf
+PG_VERSION=$(ls /etc/postgresql/ | head -1)
+PG_HBA="/etc/postgresql/$PG_VERSION/main/pg_hba.conf"
+if ! grep -q "$DB_NAME" "$PG_HBA"; then
+    echo "local   $DB_NAME    $DB_USER                                md5" | sudo tee -a "$PG_HBA" > /dev/null
+    systemctl restart postgresql
+fi
+log_success "PostgreSQL configurado"
+
+# 5. Instalar Node.js v20
+log_info "Instalando Node.js v20..."
+if ! command -v node &> /dev/null || [[ ! "$(node -v)" =~ ^v20 ]]; then
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - > /dev/null 2>&1
+    apt install -y -qq nodejs
 fi
 NODE_VERSION=$(node -v)
 NPM_VERSION=$(npm -v)
 log_success "Node.js $NODE_VERSION e NPM $NPM_VERSION instalados"
 
-# 5. Configurar firewall
+# 6. Configurar firewall
 log_info "Configurando firewall..."
-sudo ufw --force enable > /dev/null 2>&1
-sudo ufw allow OpenSSH > /dev/null 2>&1
-sudo ufw allow 'Nginx Full' > /dev/null 2>&1
-log_success "Firewall configurado (SSH, HTTP, HTTPS)"
+ufw --force enable > /dev/null 2>&1
+ufw allow OpenSSH > /dev/null 2>&1
+ufw allow 'Nginx Full' > /dev/null 2>&1
+log_success "Firewall configurado"
 
-# 6. Criar diretório e clonar repositório
-log_info "Clonando repositório..."
+# 7. Clonar repositorio
+log_info "Clonando repositorio..."
 if [ -d "$PROJECT_DIR" ]; then
-    log_warning "Diretório $PROJECT_DIR já existe"
-    read -p "Deseja removê-lo e reinstalar? [y/N] " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        sudo rm -rf "$PROJECT_DIR"
-        log_info "Diretório removido"
-    else
-        log_error "Instalação cancelada"
-    fi
+    log_warning "Diretorio ja existe. Removendo..."
+    rm -rf "$PROJECT_DIR"
 fi
-
-sudo mkdir -p "$PROJECT_DIR"
-sudo chown $USER:$USER "$PROJECT_DIR"
-git clone "$REPO_URL" "$PROJECT_DIR" || log_error "Falha ao clonar repositório"
+git clone "$REPO_URL" "$PROJECT_DIR" || log_error "Falha ao clonar repositorio"
 cd "$PROJECT_DIR"
-log_success "Repositório clonado"
+log_success "Repositorio clonado"
 
-# 7. Instalar dependências do projeto
-log_info "Instalando dependências do projeto (pode demorar)..."
-npm install --loglevel=error || log_error "Falha ao instalar dependências"
-log_success "Dependências instaladas"
+# 8. Instalar dependencias do projeto
+log_info "Instalando dependencias do projeto..."
+npm install --loglevel=error || log_error "Falha ao instalar dependencias"
+log_success "Dependencias instaladas"
 
-# 8. Configurar variáveis de ambiente
-log_info "Configurando variáveis de ambiente..."
-if [ ! -f ".env" ]; then
-    if [ -f ".env.production.template" ]; then
-        cp .env.production.template .env
-        log_success "Arquivo .env criado"
-    else
-        cat > .env << 'ENVEOF'
-VITE_SUPABASE_URL="https://seu-projeto.supabase.co"
-VITE_SUPABASE_PUBLISHABLE_KEY="sua_chave_publica"
-VITE_SUPABASE_PROJECT_ID="seu_project_id"
-VITE_APP_URL="https://seu-dominio.gov.br"
-ENVEOF
-        log_success "Arquivo .env criado"
+# 9. Aplicar migracoes
+log_info "Aplicando migracoes do banco..."
+MIGRATIONS_SQL="/tmp/migrations_$$.sql"
+cat > "$MIGRATIONS_SQL" << 'MIGRATIONS_HEADER'
+-- Aplicando migracoes do banco de dados
+MIGRATIONS_HEADER
+
+# Concatenar todas as migracoes
+for migration in supabase/migrations/*.sql; do
+    if [ -f "$migration" ]; then
+        echo "-- Migracao: $(basename $migration)" >> "$MIGRATIONS_SQL"
+        cat "$migration" >> "$MIGRATIONS_SQL"
+        echo "" >> "$MIGRATIONS_SQL"
     fi
-    log_warning "⚠️  ATENÇÃO: Configure o arquivo .env com suas credenciais!"
-    echo "    Execute: nano $PROJECT_DIR/.env"
-else
-    log_info "Arquivo .env já existe"
-fi
+done
 
-# 9. Build do projeto
-log_info "Gerando build de produção (pode demorar)..."
-if npm run build; then
-    BUILD_SIZE=$(du -sh dist 2>/dev/null | cut -f1 || echo "?")
-    log_success "Build gerado com sucesso ($BUILD_SIZE)"
-else
-    log_warning "Build falhou. Você precisará executar manualmente:"
-    log_warning "  cd $PROJECT_DIR && npm run build"
-fi
+# Aplicar migracoes
+sudo -u postgres psql -d "$DB_NAME" -f "$MIGRATIONS_SQL" > /dev/null 2>&1 || log_warning "Algumas migracoes podem ter falhado"
+rm -f "$MIGRATIONS_SQL"
+log_success "Migracoes aplicadas"
 
-# 10. Configurar Nginx
-log_info "Configurando Nginx..."
+# 10. Criar empresa e usuario
+log_info "Criando empresa e usuario administrador..."
+ADMIN_PASSWORD_HASH=$(echo -n "$ADMIN_PASSWORD" | openssl dgst -sha256 | awk '{print $2}')
 
-NGINX_CONF="/etc/nginx/sites-available/govchat"
+sudo -u postgres psql -d "$DB_NAME" << EOF > /dev/null 2>&1
+-- Criar empresa
+INSERT INTO companies (name, slug, plan, active, created_at, updated_at)
+VALUES ('$COMPANY_NAME', '$COMPANY_SLUG', 'enterprise', true, NOW(), NOW())
+ON CONFLICT (slug) DO NOTHING;
 
-if [ -f "scripts/nginx-govchat.conf" ]; then
-    sudo cp scripts/nginx-govchat.conf "$NGINX_CONF"
+-- Criar usuario admin (simulado - em producao usar Supabase Auth)
+DO \$\$
+DECLARE
+    v_company_id UUID;
+    v_user_id UUID;
+BEGIN
+    -- Pegar ID da empresa
+    SELECT id INTO v_company_id FROM companies WHERE slug = '$COMPANY_SLUG';
     
-    # Substituir domínio se fornecido
-    if [ -n "$DOMAIN" ]; then
-        sudo sed -i "s/seu-dominio.gov.br/$DOMAIN/g" "$NGINX_CONF"
-        sudo sed -i "s/server_name _;/server_name $DOMAIN;/g" "$NGINX_CONF"
-    fi
-else
-    # Criar configuração básica se arquivo não existir
-    sudo tee "$NGINX_CONF" > /dev/null << EOF
+    -- Criar perfil
+    INSERT INTO profiles (id, email, full_name, company_id, role, active, created_at, updated_at)
+    VALUES (gen_random_uuid(), '$ADMIN_EMAIL', '$ADMIN_NAME', v_company_id, 'admin', true, NOW(), NOW())
+    ON CONFLICT (email) DO NOTHING
+    RETURNING id INTO v_user_id;
+    
+    -- Criar role de usuario
+    IF v_user_id IS NOT NULL THEN
+        INSERT INTO user_roles (user_id, company_id, role)
+        VALUES (v_user_id, v_company_id, 'admin')
+        ON CONFLICT DO NOTHING;
+    END IF;
+END \$\$;
+
+-- Criar setor padrao
+INSERT INTO sectors (company_id, name, active, created_at, updated_at)
+SELECT id, 'Atendimento Geral', true, NOW(), NOW()
+FROM companies WHERE slug = '$COMPANY_SLUG'
+ON CONFLICT DO NOTHING;
+EOF
+
+log_success "Empresa e usuario criados"
+
+# 11. Criar arquivo .env
+log_info "Configurando variaveis de ambiente..."
+cat > "$PROJECT_DIR/.env" << EOF
+# Database Configuration
+DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME"
+DB_HOST="localhost"
+DB_PORT="5432"
+DB_NAME="$DB_NAME"
+DB_USER="$DB_USER"
+DB_PASSWORD="$DB_PASSWORD"
+
+# Supabase Configuration (fallback - usar PostgreSQL local)
+VITE_SUPABASE_URL="http://localhost:5432"
+VITE_SUPABASE_PUBLISHABLE_KEY="local-dev-key"
+VITE_SUPABASE_PROJECT_ID="local"
+
+# Application Configuration
+VITE_APP_URL="https://$DOMAIN"
+NODE_ENV="production"
+EOF
+log_success "Variaveis configuradas"
+
+# 12. Build do projeto
+log_info "Gerando build de producao..."
+npm run build || log_error "Falha ao gerar build"
+log_success "Build gerado"
+
+# 13. Configurar Nginx
+log_info "Configurando Nginx..."
+cat > /etc/nginx/sites-available/govchat << EOF
 server {
     listen 80;
-    server_name ${DOMAIN:-_};
+    server_name $DOMAIN;
     root $PROJECT_DIR/dist;
     index index.html;
-    
-    access_log /var/log/nginx/govchat_access.log;
-    error_log /var/log/nginx/govchat_error.log;
-    
+
+    # Gzip
     gzip on;
-    gzip_vary on;
-    gzip_min_length 1024;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript image/svg+xml;
-    
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # Cache de assets
     location /assets/ {
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
-    
+
+    # SPA fallback
     location / {
         try_files \$uri \$uri/ /index.html;
     }
-    
+
+    # Seguranca
     location ~ /\. {
         deny all;
     }
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
 }
 EOF
-fi
 
 # Ativar site
-sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/govchat
-sudo rm -f /etc/nginx/sites-enabled/default
+ln -sf /etc/nginx/sites-available/govchat /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
 
-# Testar e reiniciar
-if sudo nginx -t > /dev/null 2>&1; then
-    sudo systemctl restart nginx
-    sudo systemctl enable nginx > /dev/null 2>&1
-    log_success "Nginx configurado e rodando"
+# Testar e recarregar
+nginx -t || log_error "Erro na configuracao do Nginx"
+systemctl reload nginx
+log_success "Nginx configurado"
+
+# 14. Configurar SSL com Let's Encrypt
+log_info "Configurando SSL..."
+log_info "Verificando DNS..."
+
+# Verificar se o DNS aponta para este servidor
+SERVER_IP=$(curl -s ifconfig.me)
+DNS_IP=$(dig +short "$DOMAIN" | tail -1)
+
+if [[ "$SERVER_IP" != "$DNS_IP" ]]; then
+    log_warning "DNS nao aponta para este servidor!"
+    log_warning "IP do servidor: $SERVER_IP"
+    log_warning "IP no DNS: $DNS_IP"
+    log_warning ""
+    log_warning "Configure o DNS para apontar para $SERVER_IP e execute:"
+    log_warning "  sudo certbot --nginx -d $DOMAIN"
+    log_warning ""
 else
-    log_error "Erro na configuração do Nginx. Execute: sudo nginx -t"
+    # DNS correto, gerar SSL
+    certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || {
+        log_warning "Falha ao gerar SSL automatico"
+        log_warning "Execute manualmente: sudo certbot --nginx -d $DOMAIN"
+    }
+    log_success "SSL configurado"
 fi
 
-# 11. Configurar SSL (se domínio fornecido)
-if [ -n "$DOMAIN" ]; then
-    log_info "Configurando SSL com Let's Encrypt..."
-    
-    # Verificar se domínio aponta para este servidor
-    SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
-    DOMAIN_IP=$(dig +short "$DOMAIN" @8.8.8.8 | tail -1)
-    
-    if [ -n "$DOMAIN_IP" ] && [ "$SERVER_IP" = "$DOMAIN_IP" ]; then
-        log_success "Domínio aponta para este servidor ($SERVER_IP)"
-        
-        # Obter certificado
-        if sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect; then
-            log_success "SSL configurado com sucesso"
-        else
-            log_warning "Não foi possível configurar SSL automaticamente"
-            log_info "Execute manualmente: sudo certbot --nginx -d $DOMAIN"
-        fi
-    else
-        log_warning "Domínio não aponta para este servidor"
-        log_info "  IP do servidor: $SERVER_IP"
-        log_info "  IP do domínio: ${DOMAIN_IP:-não resolvido}"
-        log_info "  Configure o DNS e execute: sudo certbot --nginx -d $DOMAIN"
-    fi
-else
-    log_info "SSL não configurado (nenhum domínio fornecido)"
-fi
+# 15. Criar comandos globais
+log_info "Criando comandos globais..."
 
-# 12. Tornar scripts executáveis
-if [ -d "scripts" ]; then
-    chmod +x scripts/*.sh 2>/dev/null || true
-    log_success "Scripts tornados executáveis"
-fi
-
-# 13. Criar script de atualização no PATH
-log_info "Criando comando global 'govchat-update'..."
-sudo tee /usr/local/bin/govchat-update > /dev/null << 'UPDATECMD'
+# Comando de update
+cat > /usr/local/bin/govchat-update << 'EOF'
 #!/bin/bash
-cd /var/www/govchat && ./scripts/update.sh "$@"
-UPDATECMD
-sudo chmod +x /usr/local/bin/govchat-update
-log_success "Comando 'govchat-update' criado"
+cd /var/www/govchat
+git pull origin main
+npm install
+npm run build
+systemctl reload nginx
+echo "Sistema atualizado com sucesso!"
+EOF
+chmod +x /usr/local/bin/govchat-update
 
-# 14. Informações finais
+# Comando de backup
+cat > /usr/local/bin/govchat-backup-db << EOF
+#!/bin/bash
+BACKUP_DIR="/var/backups/govchat"
+mkdir -p "\$BACKUP_DIR"
+BACKUP_FILE="\$BACKUP_DIR/backup_\$(date +%Y%m%d_%H%M%S).sql.gz"
+sudo -u postgres pg_dump "$DB_NAME" | gzip > "\$BACKUP_FILE"
+echo "Backup salvo em: \$BACKUP_FILE"
+# Manter apenas ultimos 7 backups
+ls -t "\$BACKUP_DIR"/backup_*.sql.gz | tail -n +8 | xargs rm -f 2>/dev/null || true
+EOF
+chmod +x /usr/local/bin/govchat-backup-db
+
+log_success "Comandos criados"
+
+# 16. Salvar credenciais
+CREDENTIALS_FILE="$PROJECT_DIR/CREDENCIAIS_INSTALACAO.txt"
+cat > "$CREDENTIALS_FILE" << EOF
+========================================
+  CREDENCIAIS DO SISTEMA GOVCHAT
+========================================
+
+URL do Sistema:
+  https://$DOMAIN
+
+Administrador:
+  Email: $ADMIN_EMAIL
+  Senha: $ADMIN_PASSWORD
+
+Banco de Dados PostgreSQL:
+  Host: localhost
+  Porta: 5432
+  Database: $DB_NAME
+  Usuario: $DB_USER
+  Senha: $DB_PASSWORD
+
+Empresa:
+  Nome: $COMPANY_NAME
+  Slug: $COMPANY_SLUG
+
+Comandos Uteis:
+  - Atualizar sistema: govchat-update
+  - Backup do banco: govchat-backup-db
+  - Status Nginx: systemctl status nginx
+  - Status PostgreSQL: systemctl status postgresql
+  - Logs Nginx: tail -f /var/log/nginx/error.log
+
+========================================
+  GUARDE ESTAS INFORMACOES COM SEGURANCA
+========================================
+EOF
+
+chmod 600 "$CREDENTIALS_FILE"
+
+# ============================================
+# FINALIZACAO
+# ============================================
+
+clear
+cat << "EOF"
+========================================
+  INSTALACAO CONCLUIDA COM SUCESSO!
+========================================
+EOF
 echo ""
-echo "=========================================="
-echo -e "${GREEN}  ✅ INSTALAÇÃO CONCLUÍDA!${NC}"
-echo "=========================================="
-echo ""
-
-# Determinar URL de acesso
-if [ -n "$DOMAIN" ]; then
-    ACCESS_URL="https://$DOMAIN"
-else
-    SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
-    ACCESS_URL="http://$SERVER_IP"
-fi
-
 log_success "Sistema instalado em: $PROJECT_DIR"
-log_success "Acesse: $ACCESS_URL"
+log_success "Credenciais salvas em: $CREDENTIALS_FILE"
+echo ""
+log_info "Acesse o sistema em: https://$DOMAIN"
+log_info "Email: $ADMIN_EMAIL"
+log_info "Senha: (a que voce definiu)"
+echo ""
+log_warning "IMPORTANTE:"
+log_warning "1. Guarde as credenciais com seguranca"
+log_warning "2. Altere a senha no primeiro acesso"
+log_warning "3. Configure backup automatico (cron)"
+echo ""
+log_info "Comandos disponiveis:"
+echo "  - govchat-update      (atualizar sistema)"
+echo "  - govchat-backup-db   (backup do banco)"
 echo ""
 
-log_warning "⚠️  PRÓXIMOS PASSOS OBRIGATÓRIOS:"
-echo ""
-echo "1. Configure as variáveis de ambiente:"
-echo -e "   ${CYAN}nano $PROJECT_DIR/.env${NC}"
-echo ""
-echo "2. Adicione suas credenciais do Supabase:"
-echo "   - VITE_SUPABASE_URL"
-echo "   - VITE_SUPABASE_PUBLISHABLE_KEY"
-echo "   - VITE_SUPABASE_PROJECT_ID"
-echo ""
-echo "3. Se o build falhou, execute:"
-echo -e "   ${CYAN}cd $PROJECT_DIR && npm run build${NC}"
-echo ""
-echo "4. Configure o domínio no Supabase Auth:"
-echo "   - Acesse: https://app.supabase.com"
-echo "   - Adicione $ACCESS_URL nas Redirect URLs"
-echo ""
-
-log_info "📚 Documentação:"
-echo "   - Guia Rápido: $PROJECT_DIR/QUICKSTART_VPS.md"
-echo "   - Guia Completo: $PROJECT_DIR/docs/DEPLOY_VPS.md"
-echo ""
-
-log_info "🔧 Comandos úteis:"
-echo "   - Atualizar sistema: ${CYAN}govchat-update${NC}"
-echo "   - Monitorar status: ${CYAN}cd $PROJECT_DIR && ./scripts/monitor.sh${NC}"
-echo "   - Ver logs: ${CYAN}sudo tail -f /var/log/nginx/govchat_error.log${NC}"
-echo ""
-
-log_success "Instalação finalizada! 🎉"
-echo ""
+# Mostrar credenciais
+cat "$CREDENTIALS_FILE"
