@@ -11,7 +11,22 @@ Sistema completo de atendimento via WhatsApp para órgãos governamentais, com c
 
 ## 🚀 Instalação Rápida em VPS
 
-### Opção 1: Com Supabase Cloud (Recomendado para começar)
+### Opção 1: NextPlan (Pré-configurado) 🌟
+
+```bash
+curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install-nextplan.sh | sudo bash
+```
+
+**Configuração:**
+- Domínio: `atendimento.nextplan.tec.br`
+- Superadmin: `feliphe@nextplan.tec.br`
+- PostgreSQL local incluído
+
+📚 **[Guia NextPlan](INSTALL_NEXTPLAN.md)**
+
+---
+
+### Opção 2: Com Supabase Cloud (Recomendado para começar)
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install.sh | sudo bash
@@ -24,7 +39,9 @@ curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/inst
 
 **Tempo de instalação:** ~10 minutos
 
-### Opção 2: Com PostgreSQL Local (Auto-hospedado)
+---
+
+### Opção 3: Com PostgreSQL Local (Auto-hospedado)
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install-local-db.sh | sudo bash
