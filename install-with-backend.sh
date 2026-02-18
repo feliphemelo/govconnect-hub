@@ -311,7 +311,12 @@ npm run build
 log_info "Configurando PM2..."
 pm2 start dist/server.js --name govchat-backend
 pm2 save
-pm2 startup systemd -u root --hp /root | tail -n 1 | bash
+
+# Configurar PM2 para iniciar no boot
+STARTUP_CMD=$(pm2 startup systemd -u root --hp /root | grep "sudo env")
+if [ -n "$STARTUP_CMD" ]; then
+    eval "$STARTUP_CMD"
+fi
 
 log_success "Backend configurado e rodando"
 
