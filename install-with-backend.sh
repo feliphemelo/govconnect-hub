@@ -266,7 +266,7 @@ cd "$BACKEND_DIR"
 
 # Instalar dependencias do backend (incluindo dev dependencies para build)
 log_info "Instalando dependencias do backend..."
-npm install
+NODE_ENV=development npm install
 
 # Criar .env do backend
 cat > .env << ENDOFENV
