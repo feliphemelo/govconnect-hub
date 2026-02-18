@@ -19,7 +19,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # ============================================
-# CONFIGURAÇÕES NEXTPLAN (PRÉ-CONFIGURADAS)
+# CONFIGURAES NEXTPLAN (PR-CONFIGURADAS)
 # ============================================
 REPO_URL="https://github.com/feliphemelo/govconnect-hub.git"
 PROJECT_DIR="/var/www/govchat"
@@ -39,9 +39,9 @@ ADMIN_NAME="Felipe NextPlan"
 
 # Funcoes de log
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
-log_warning() { echo -e "${YELLOW}[⚠]${NC} $1"; }
-log_error() { echo -e "${RED}[✗]${NC} $1"; exit 1; }
+log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
+log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 # Banner personalizado
 clear
@@ -58,7 +58,7 @@ cat << "EOF"
 EOF
 echo -e "${NC}"
 echo "=========================================="
-echo "  🚀 GovChat NextPlan - Instalador"
+echo "  >> GovChat NextPlan - Instalador <<"
 echo "=========================================="
 echo ""
 
@@ -451,7 +451,7 @@ cat > "$CREDS_FILE" << CREDSEOF
   GOVCHAT NEXTPLAN - CREDENCIAIS
 ========================================
 
-DOMÍNIO
+DOMNIO
 -------
 URL: https://$DOMAIN
 
@@ -474,7 +474,7 @@ EMPRESA
 Nome: $COMPANY_NAME
 Slug: $COMPANY_SLUG
 
-COMANDOS ÚTEIS
+COMANDOS TEIS
 --------------
 Atualizar: govchat-update
 Backup: govchat-backup-db
@@ -484,8 +484,8 @@ PostgreSQL: sudo -u postgres psql $DB_NAME
 
 IMPORTANTE
 ----------
-⚠️  Guarde este arquivo em local seguro!
-⚠️  Troque as senhas apos primeiro acesso!
+  Guarde este arquivo em local seguro!
+  Troque as senhas apos primeiro acesso!
 
 Data da instalacao: $(date)
 ========================================
@@ -496,7 +496,7 @@ sudo chmod 600 "$CREDS_FILE"
 # 18. Informacoes finais
 echo ""
 echo "=========================================="
-echo -e "${GREEN}  ✅ INSTALAÇÃO NEXTPLAN CONCLUÍDA!${NC}"
+echo -e "${GREEN}   INSTALAO NEXTPLAN CONCLUDA!${NC}"
 echo "=========================================="
 echo ""
 
@@ -504,35 +504,35 @@ log_success "Sistema instalado: $PROJECT_DIR"
 log_success "Dominio: https://$DOMAIN"
 echo ""
 
-echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}${NC}"
 echo -e "${GREEN}  CREDENCIAIS DE ACESSO${NC}"
-echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}${NC}"
 echo ""
-echo "  🌐 URL: ${CYAN}https://$DOMAIN${NC}"
+echo "   URL: ${CYAN}https://$DOMAIN${NC}"
 echo ""
-echo "  👤 Superadmin:"
+echo "   Superadmin:"
 echo "     Email: ${YELLOW}$ADMIN_EMAIL${NC}"
 echo "     Senha: ${YELLOW}$ADMIN_PASSWORD${NC}"
 echo ""
-echo "  💾 Banco:"
+echo "   Banco:"
 echo "     Nome: $DB_NAME"
 echo "     Usuario: $DB_USER"
 echo "     Senha: $DB_PASSWORD"
 echo ""
-echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}${NC}"
 echo ""
 
-log_warning "⚠️  IMPORTANTE:"
+log_warning "  IMPORTANTE:"
 echo "  1. Credenciais salvas em: $CREDS_FILE"
 echo "  2. Troque as senhas apos primeiro acesso!"
 echo "  3. Configure backup automatico (cron)"
 echo ""
 
-log_info "🔧 Comandos uteis:"
+log_info " Comandos uteis:"
 echo "   ${CYAN}govchat-update${NC}        - Atualizar sistema"
 echo "   ${CYAN}govchat-backup-db${NC}     - Backup do banco"
 echo ""
 
-log_success "Instalacao finalizada! 🎉"
+log_success "Instalacao finalizada! "
 log_info "Acesse: ${CYAN}https://$DOMAIN${NC}"
 echo ""
