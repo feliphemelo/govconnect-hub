@@ -264,9 +264,9 @@ log_info "Configurando backend..."
 
 cd "$BACKEND_DIR"
 
-# Instalar dependencias do backend
+# Instalar dependencias do backend (incluindo dev dependencies para build)
 log_info "Instalando dependencias do backend..."
-npm install --production
+npm install
 
 # Criar .env do backend
 cat > .env << ENDOFENV
