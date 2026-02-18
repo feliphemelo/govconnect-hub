@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # GovChat NextPlan - Instalador Personalizado
-# Domínio: atendimento.nextplan.tec.br
+# Dominio: atendimento.nextplan.tec.br
 # 
 # Uso:
 #   curl -sSL https://raw.githubusercontent.com/feliphemelo/govconnect-hub/main/install-nextplan.sh | sudo bash
@@ -37,7 +37,7 @@ ADMIN_EMAIL="feliphe@nextplan.tec.br"
 ADMIN_PASSWORD="Admin@2026"
 ADMIN_NAME="Felipe NextPlan"
 
-# Funções de log
+# Funcoes de log
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
 log_warning() { echo -e "${YELLOW}[⚠]${NC} $1"; }
@@ -53,8 +53,8 @@ cat << "EOF"
   | |\  |  __/>  <| |_|  __/| | (_| | | | |
   |_| \_|\___/_/\_\\__|_|   |_|\__,_|_| |_|
                                             
-    Sistema de Atendimento ao Cidadão
-    Instalação Personalizada
+    Sistema de Atendimento ao Cidadao
+    Instalacao Personalizada
 EOF
 echo -e "${NC}"
 echo "=========================================="
@@ -62,24 +62,24 @@ echo "  🚀 GovChat NextPlan - Instalador"
 echo "=========================================="
 echo ""
 
-# Verificar se é root ou tem sudo
+# Verificar se eh root ou tem sudo
 if [ "$EUID" -ne 0 ] && ! sudo -n true 2>/dev/null; then
-    log_error "Este script precisa de privilégios sudo."
+    log_error "Este script precisa de privilegios sudo."
 fi
 
-# Informações da instalação
-log_info "Configurações NextPlan:"
-echo "  Domínio: ${CYAN}$DOMAIN${NC}"
+# Informacoes da instalacao
+log_info "Configuracoes NextPlan:"
+echo "  Dominio: ${CYAN}$DOMAIN${NC}"
 echo "  Empresa: $COMPANY_NAME"
 echo "  Banco: $DB_NAME"
 echo "  Superadmin: $ADMIN_EMAIL"
 echo ""
 
-# Confirmação
-read -p "$(echo -e ${YELLOW}Deseja continuar com a instalação? [y/N] ${NC})" -n 1 -r
+# Confirmacao
+read -p "$(echo -e ${YELLOW}Deseja continuar com a instalacao? [y/N] ${NC})" -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Instalação cancelada."
+    echo "Instalacao cancelada."
     exit 0
 fi
 echo ""
@@ -105,13 +105,13 @@ sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq
 log_success "Sistema atualizado"
 
-# 3. Instalar dependências
-log_info "Instalando dependências..."
+# 3. Instalar dependencias
+log_info "Instalando dependencias..."
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
     curl git build-essential nginx certbot python3-certbot-nginx \
     ufw software-properties-common ca-certificates gnupg \
     postgresql postgresql-contrib
-log_success "Dependências instaladas"
+log_success "Dependencias instaladas"
 
 # 4. Configurar PostgreSQL
 log_info "Configurando PostgreSQL..."
@@ -119,7 +119,7 @@ log_info "Configurando PostgreSQL..."
 sudo systemctl start postgresql
 sudo systemctl enable postgresql > /dev/null 2>&1
 
-# Criar banco e usuário
+# Criar banco e usuario
 sudo -u postgres psql -c "CREATE DATABASE $DB_NAME;" 2>/dev/null || true
 sudo -u postgres psql -c "CREATE USER $DB_USER WITH ENCRYPTED PASSWORD '$DB_PASSWORD';" 2>/dev/null || true
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;"
@@ -154,27 +154,27 @@ sudo ufw allow OpenSSH > /dev/null 2>&1
 sudo ufw allow 'Nginx Full' > /dev/null 2>&1
 log_success "Firewall configurado"
 
-# 7. Clonar repositório
-log_info "Clonando repositório..."
+# 7. Clonar repositorio
+log_info "Clonando repositorio..."
 if [ -d "$PROJECT_DIR" ]; then
-    log_warning "Diretório já existe. Removendo..."
+    log_warning "Diretorio ja existe. Removendo..."
     sudo rm -rf "$PROJECT_DIR"
 fi
 
 sudo mkdir -p "$PROJECT_DIR"
 sudo chown $USER:$USER "$PROJECT_DIR"
-git clone "$REPO_URL" "$PROJECT_DIR" || log_error "Falha ao clonar repositório"
+git clone "$REPO_URL" "$PROJECT_DIR" || log_error "Falha ao clonar repositorio"
 cd "$PROJECT_DIR"
-log_success "Repositório clonado"
+log_success "Repositorio clonado"
 
-# 8. Instalar dependências do projeto
-log_info "Instalando dependências do projeto..."
-npm install --loglevel=error || log_error "Falha ao instalar dependências"
+# 8. Instalar dependencias do projeto
+log_info "Instalando dependencias do projeto..."
+npm install --loglevel=error || log_error "Falha ao instalar dependencias"
 npm install pg bcrypt --save
-log_success "Dependências instaladas"
+log_success "Dependencias instaladas"
 
-# 9. Aplicar migrações do banco
-log_info "Aplicando migrações do banco..."
+# 9. Aplicar migracoes do banco
+log_info "Aplicando migracoes do banco..."
 
 MIGRATIONS_SQL="$PROJECT_DIR/migrations_combined.sql"
 cat > "$MIGRATIONS_SQL" << 'SQLEOF'
@@ -184,7 +184,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 SQLEOF
 
-# Concatenar migrações
+# Concatenar migracoes
 for migration in supabase/migrations/*.sql; do
     if [ -f "$migration" ]; then
         cat "$migration" >> "$MIGRATIONS_SQL"
@@ -192,9 +192,9 @@ for migration in supabase/migrations/*.sql; do
     fi
 done
 
-# Aplicar migrações
+# Aplicar migracoes
 PGPASSWORD=$DB_PASSWORD psql -h localhost -U $DB_USER -d $DB_NAME -f "$MIGRATIONS_SQL" > /dev/null 2>&1
-log_success "Migrações aplicadas"
+log_success "Migracoes aplicadas"
 rm -f "$MIGRATIONS_SQL"
 
 # 10. Criar empresa e superadmin
@@ -203,7 +203,7 @@ log_info "Criando empresa NextPlan e superadmin..."
 # Hash da senha usando bcrypt (12 rounds)
 ADMIN_PASSWORD_HASH=$(node -e "const bcrypt = require('bcrypt'); console.log(bcrypt.hashSync('$ADMIN_PASSWORD', 12));")
 
-# Script SQL para criar empresa e usuário
+# Script SQL para criar empresa e usuario
 SETUP_SQL="$PROJECT_DIR/setup_nextplan.sql"
 cat > "$SETUP_SQL" << SETUPEOF
 -- Criar empresa NextPlan
@@ -221,7 +221,7 @@ VALUES (
 ) ON CONFLICT (slug) DO NOTHING
 RETURNING id;
 
--- Variável para armazenar company_id
+-- Variavel para armazenar company_id
 DO \$\$
 DECLARE
   v_company_id UUID;
@@ -230,7 +230,7 @@ BEGIN
   -- Obter company_id
   SELECT id INTO v_company_id FROM public.companies WHERE slug = '$COMPANY_SLUG';
   
-  -- Criar usuário no auth.users (simulado - em produção use Supabase Auth)
+  -- Criar usuario no auth.users (simulado - em producao use Supabase Auth)
   INSERT INTO auth.users (
     instance_id,
     id,
@@ -260,7 +260,7 @@ BEGIN
   ) ON CONFLICT (email) DO NOTHING
   RETURNING id INTO v_user_id;
   
-  -- Se usuário já existe, obter ID
+  -- Se usuario ja existe, obter ID
   IF v_user_id IS NULL THEN
     SELECT id INTO v_user_id FROM auth.users WHERE email = '$ADMIN_EMAIL';
   END IF;
@@ -286,13 +286,13 @@ BEGIN
     'admin'
   ) ON CONFLICT (user_id, role, company_id) DO NOTHING;
   
-  -- Criar setor padrão
+  -- Criar setor padrao
   INSERT INTO public.sectors (id, company_id, name, description, is_active)
   VALUES (
     gen_random_uuid(),
     v_company_id,
     'Atendimento Geral',
-    'Setor de atendimento geral ao cidadão',
+    'Setor de atendimento geral ao cidadao',
     true
   ) ON CONFLICT DO NOTHING;
   
@@ -305,8 +305,8 @@ PGPASSWORD=$DB_PASSWORD psql -h localhost -U $DB_USER -d $DB_NAME -f "$SETUP_SQL
 log_success "Empresa e superadmin criados"
 rm -f "$SETUP_SQL"
 
-# 11. Configurar variáveis de ambiente
-log_info "Configurando variáveis de ambiente..."
+# 11. Configurar variaveis de ambiente
+log_info "Configurando variaveis de ambiente..."
 
 DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME"
 JWT_SECRET=$(openssl rand -base64 32)
@@ -340,7 +340,7 @@ ENVEOF
 log_success "Arquivo .env criado"
 
 # 12. Build do projeto
-log_info "Gerando build de produção..."
+log_info "Gerando build de producao..."
 if npm run build; then
     BUILD_SIZE=$(du -sh dist 2>/dev/null | cut -f1 || echo "?")
     log_success "Build gerado ($BUILD_SIZE)"
@@ -396,7 +396,7 @@ if sudo nginx -t > /dev/null 2>&1; then
     sudo systemctl enable nginx > /dev/null 2>&1
     log_success "Nginx configurado"
 else
-    log_error "Erro na configuração do Nginx"
+    log_error "Erro na configuracao do Nginx"
 fi
 
 # 14. Configurar SSL
@@ -414,13 +414,13 @@ if [ -n "$DOMAIN_IP" ] && [ "$SERVER_IP" = "$DOMAIN_IP" ]; then
         log_warning "Falha no SSL. Execute: sudo certbot --nginx -d $DOMAIN"
     fi
 else
-    log_warning "DNS não aponta para este servidor"
+    log_warning "DNS nao aponta para este servidor"
     log_info "  IP do servidor: $SERVER_IP"
-    log_info "  IP do domínio: ${DOMAIN_IP:-não resolvido}"
+    log_info "  IP do dominio: ${DOMAIN_IP:-nao resolvido}"
     log_warning "Configure o DNS e execute: sudo certbot --nginx -d $DOMAIN"
 fi
 
-# 15. Scripts executáveis
+# 15. Scripts executaveis
 chmod +x scripts/*.sh 2>/dev/null || true
 
 # 16. Comandos globais
@@ -463,7 +463,7 @@ Nome: $ADMIN_NAME
 BANCO DE DADOS
 --------------
 Banco: $DB_NAME
-Usuário: $DB_USER
+Usuario: $DB_USER
 Senha: $DB_PASSWORD
 Host: localhost:5432
 URL: $DATABASE_URL
@@ -484,15 +484,15 @@ PostgreSQL: sudo -u postgres psql $DB_NAME
 IMPORTANTE
 ----------
 ⚠️  Guarde este arquivo em local seguro!
-⚠️  Troque as senhas após primeiro acesso!
+⚠️  Troque as senhas apos primeiro acesso!
 
-Data da instalação: $(date)
+Data da instalacao: $(date)
 ========================================
 CREDSEOF
 
 sudo chmod 600 "$CREDS_FILE"
 
-# 18. Informações finais
+# 18. Informacoes finais
 echo ""
 echo "=========================================="
 echo -e "${GREEN}  ✅ INSTALAÇÃO NEXTPLAN CONCLUÍDA!${NC}"
@@ -500,7 +500,7 @@ echo "=========================================="
 echo ""
 
 log_success "Sistema instalado: $PROJECT_DIR"
-log_success "Domínio: https://$DOMAIN"
+log_success "Dominio: https://$DOMAIN"
 echo ""
 
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -515,7 +515,7 @@ echo "     Senha: ${YELLOW}$ADMIN_PASSWORD${NC}"
 echo ""
 echo "  💾 Banco:"
 echo "     Nome: $DB_NAME"
-echo "     Usuário: $DB_USER"
+echo "     Usuario: $DB_USER"
 echo "     Senha: $DB_PASSWORD"
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -523,15 +523,15 @@ echo ""
 
 log_warning "⚠️  IMPORTANTE:"
 echo "  1. Credenciais salvas em: $CREDS_FILE"
-echo "  2. Troque as senhas após primeiro acesso!"
-echo "  3. Configure backup automático (cron)"
+echo "  2. Troque as senhas apos primeiro acesso!"
+echo "  3. Configure backup automatico (cron)"
 echo ""
 
-log_info "🔧 Comandos úteis:"
+log_info "🔧 Comandos uteis:"
 echo "   ${CYAN}govchat-update${NC}        - Atualizar sistema"
 echo "   ${CYAN}govchat-backup-db${NC}     - Backup do banco"
 echo ""
 
-log_success "Instalação finalizada! 🎉"
+log_success "Instalacao finalizada! 🎉"
 log_info "Acesse: ${CYAN}https://$DOMAIN${NC}"
 echo ""
