@@ -1452,9 +1452,9 @@ app.get('/api/conversations/:id/messages', async (req: Request, res: Response) =
         is_from_me,
         NOT is_from_me as is_from_customer
        FROM whatsapp_messages
-       WHERE chat_id = (SELECT chat_id FROM whatsapp_chats WHERE id = $2)
+       WHERE chat_id = (SELECT chat_id FROM whatsapp_chats WHERE id = $1)
        ORDER BY created_at ASC`,
-      [id, id]
+      [id]
     );
     
     console.log(`✅ ${result.rows.length} mensagem(ns)`);

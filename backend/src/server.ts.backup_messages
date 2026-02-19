@@ -910,6 +910,44 @@ app.patch('/api/conversations/:id', authMiddleware, async (req: Request, res: Re
 
 // ===== MESSAGES ROUTES =====
 
+app.get('/api/conversations/:id/messages', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+    const { page = 1, limit = 50 } = req.query;
+    
+    // Verify conversation belongs to company
+    const convCheck = await pool.query(
+      'SELECT id FROM conversations WHERE id = $1 AND company_id = $2',
+      [id, payload.companyId]
+    );
+    
+    if (convCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    
+    const result = await pool.query(
+      `SELECT m.*,
+              CASE 
+                WHEN m.sender_type = 'agent' THEN p.full_name
+                ELSE c.name
+              END as sender_name
+       FROM messages m
+       LEFT JOIN profiles p ON p.user_id = m.sender_id AND m.sender_type = 'agent'
+       LEFT JOIN conversations conv ON conv.id = m.conversation_id
+       LEFT JOIN contacts c ON c.id = conv.contact_id AND m.sender_type = 'contact'
+       WHERE m.conversation_id = $1
+       ORDER BY m.created_at ASC
+       LIMIT $2 OFFSET $3`,
+      [id, Number(limit), (Number(page) - 1) * Number(limit)]
+    );
+    
+    res.json({ messages: result.rows });
+  } catch (error) {
+    console.error('Get messages error:', error);
+    res.status(500).json({ error: 'Failed to get messages' });
+  }
+});
 
 app.post('/api/conversations/:id/messages', authMiddleware, async (req: Request, res: Response) => {
   try {
@@ -1321,6 +1359,36 @@ app.get('/api/whatsapp/:instanceId/chats', async (req: Request, res: Response) =
 // GET /api/conversations - Retorna todas as conversas WhatsApp do usuário
 
 // GET /api/conversations/:id/messages - Retorna mensagens de uma conversa
+app.get('/api/conversations/:id/messages', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    console.log(`📋 GET /api/conversations/${id}/messages`);
+    
+    // Buscar mensagens do chat
+    const result = await pool.query(
+      `SELECT 
+        id,
+        $1 as conversation_id,
+        from_number as sender_id,
+        content,
+        message_type,
+        created_at,
+        is_from_me,
+        NOT is_from_me as is_from_customer
+       FROM whatsapp_messages
+       WHERE chat_id = (SELECT chat_id FROM whatsapp_chats WHERE id = $1)
+       ORDER BY created_at ASC`,
+      [id]
+    );
+    
+    console.log(`✅ Retornando ${result.rows.length} mensagem(ns)`);
+    res.json({ messages: result.rows });
+    
+  } catch (error) {
+    console.error(`❌ Erro ao buscar mensagens:`, error);
+    res.status(500).json({ error: 'Erro ao buscar mensagens', messages: [] });
+  }
+});
 
 // POST /api/conversations/:id/messages - Envia uma mensagem
 app.post('/api/conversations/:id/messages', async (req: Request, res: Response) => {
@@ -1452,9 +1520,9 @@ app.get('/api/conversations/:id/messages', async (req: Request, res: Response) =
         is_from_me,
         NOT is_from_me as is_from_customer
        FROM whatsapp_messages
-       WHERE chat_id = (SELECT chat_id FROM whatsapp_chats WHERE id = $2)
+       WHERE chat_id = (SELECT chat_id FROM whatsapp_chats WHERE id = $1)
        ORDER BY created_at ASC`,
-      [id, id]
+      [id]
     );
     
     console.log(`✅ ${result.rows.length} mensagem(ns)`);
