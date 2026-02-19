@@ -17,6 +17,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -211,6 +212,11 @@ export default function SettingsSectors() {
             <DialogTitle>
               {editingSector ? "Editar Setor" : "Novo Setor"}
             </DialogTitle>
+            <DialogDescription>
+              {editingSector
+                ? "Atualize as informações do setor"
+                : "Crie um novo setor para organizar sua equipe"}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">

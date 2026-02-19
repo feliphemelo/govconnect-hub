@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Users, Plus, Search, Ban, CheckCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -134,6 +134,9 @@ export default function Contacts() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Adicionar Contato</DialogTitle>
+              <DialogDescription>
+                Preencha os dados para criar um novo contato
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div>

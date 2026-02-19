@@ -17,6 +17,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -279,6 +280,11 @@ export default function SettingsUsers() {
             <DialogTitle>
               {editingUser ? "Editar Usuário" : "Novo Usuário"}
             </DialogTitle>
+            <DialogDescription>
+              {editingUser
+                ? "Atualize as informações do usuário"
+                : "Adicione um novo usuário à equipe"}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
