@@ -420,6 +420,305 @@ app.post('/api/sectors', authMiddleware, async (req: Request, res: Response) => 
   }
 });
 
+// ===== CONVERSATIONS ROUTES =====
+
+app.get('/api/conversations', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { status, assigned_user_id, sector_id, page = 1, limit = 50 } = req.query;
+    
+    let query = `
+      SELECT c.*, 
+             co.name as contact_name, 
+             co.phone as contact_phone,
+             co.avatar_url as contact_avatar,
+             u.email as assigned_user_email,
+             p.full_name as assigned_user_name,
+             s.name as sector_name,
+             (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) as message_count,
+             (SELECT content FROM messages m WHERE m.conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message
+      FROM conversations c
+      LEFT JOIN contacts co ON co.id = c.contact_id
+      LEFT JOIN auth_users u ON u.id = c.assigned_user_id
+      LEFT JOIN profiles p ON p.user_id = u.id
+      LEFT JOIN sectors s ON s.id = c.sector_id
+      WHERE c.company_id = $1
+    `;
+    
+    const params: any[] = [payload.companyId];
+    let paramIndex = 2;
+    
+    if (status) {
+      query += ` AND c.status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+    
+    if (assigned_user_id) {
+      query += ` AND c.assigned_user_id = $${paramIndex}`;
+      params.push(assigned_user_id);
+      paramIndex++;
+    }
+    
+    if (sector_id) {
+      query += ` AND c.sector_id = $${paramIndex}`;
+      params.push(sector_id);
+      paramIndex++;
+    }
+    
+    query += ` ORDER BY c.last_message_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(Number(limit), (Number(page) - 1) * Number(limit));
+    
+    const result = await pool.query(query, params);
+    
+    // Count total
+    const countResult = await pool.query(
+      'SELECT COUNT(*) FROM conversations WHERE company_id = $1',
+      [payload.companyId]
+    );
+    
+    res.json({ 
+      conversations: result.rows,
+      total: parseInt(countResult.rows[0].count),
+      page: Number(page),
+      limit: Number(limit)
+    });
+  } catch (error) {
+    console.error('Get conversations error:', error);
+    res.status(500).json({ error: 'Failed to get conversations' });
+  }
+});
+
+app.get('/api/conversations/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      `SELECT c.*, 
+              co.name as contact_name, 
+              co.phone as contact_phone,
+              co.email as contact_email,
+              co.avatar_url as contact_avatar
+       FROM conversations c
+       LEFT JOIN contacts co ON co.id = c.contact_id
+       WHERE c.id = $1 AND c.company_id = $2`,
+      [id, payload.companyId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    
+    res.json({ conversation: result.rows[0] });
+  } catch (error) {
+    console.error('Get conversation error:', error);
+    res.status(500).json({ error: 'Failed to get conversation' });
+  }
+});
+
+app.post('/api/conversations', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { contact_id, sector_id, assigned_user_id, channel = 'whatsapp' } = req.body;
+    
+    if (!contact_id) {
+      return res.status(400).json({ error: 'Contact ID is required' });
+    }
+    
+    const result = await pool.query(
+      `INSERT INTO conversations (company_id, contact_id, sector_id, assigned_user_id, channel, status, last_message_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, 'open', NOW(), NOW(), NOW())
+       RETURNING *`,
+      [payload.companyId, contact_id, sector_id, assigned_user_id, channel]
+    );
+    
+    res.status(201).json({ conversation: result.rows[0] });
+  } catch (error) {
+    console.error('Create conversation error:', error);
+    res.status(500).json({ error: 'Failed to create conversation' });
+  }
+});
+
+app.patch('/api/conversations/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+    const { status, assigned_user_id, sector_id } = req.body;
+    
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+    
+    if (status) {
+      updates.push(`status = $${paramIndex}`);
+      values.push(status);
+      paramIndex++;
+    }
+    
+    if (assigned_user_id !== undefined) {
+      updates.push(`assigned_user_id = $${paramIndex}`);
+      values.push(assigned_user_id);
+      paramIndex++;
+    }
+    
+    if (sector_id !== undefined) {
+      updates.push(`sector_id = $${paramIndex}`);
+      values.push(sector_id);
+      paramIndex++;
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+    
+    updates.push(`updated_at = NOW()`);
+    values.push(id, payload.companyId);
+    
+    const result = await pool.query(
+      `UPDATE conversations SET ${updates.join(', ')} 
+       WHERE id = $${paramIndex} AND company_id = $${paramIndex + 1}
+       RETURNING *`,
+      values
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    
+    res.json({ conversation: result.rows[0] });
+  } catch (error) {
+    console.error('Update conversation error:', error);
+    res.status(500).json({ error: 'Failed to update conversation' });
+  }
+});
+
+// ===== MESSAGES ROUTES =====
+
+app.get('/api/conversations/:id/messages', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+    const { page = 1, limit = 50 } = req.query;
+    
+    // Verify conversation belongs to company
+    const convCheck = await pool.query(
+      'SELECT id FROM conversations WHERE id = $1 AND company_id = $2',
+      [id, payload.companyId]
+    );
+    
+    if (convCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    
+    const result = await pool.query(
+      `SELECT m.*,
+              CASE 
+                WHEN m.sender_type = 'agent' THEN p.full_name
+                ELSE c.name
+              END as sender_name
+       FROM messages m
+       LEFT JOIN profiles p ON p.user_id = m.sender_id AND m.sender_type = 'agent'
+       LEFT JOIN conversations conv ON conv.id = m.conversation_id
+       LEFT JOIN contacts c ON c.id = conv.contact_id AND m.sender_type = 'contact'
+       WHERE m.conversation_id = $1
+       ORDER BY m.created_at ASC
+       LIMIT $2 OFFSET $3`,
+      [id, Number(limit), (Number(page) - 1) * Number(limit)]
+    );
+    
+    res.json({ messages: result.rows });
+  } catch (error) {
+    console.error('Get messages error:', error);
+    res.status(500).json({ error: 'Failed to get messages' });
+  }
+});
+
+app.post('/api/conversations/:id/messages', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+    const { content, media_url, media_type } = req.body;
+    
+    if (!content && !media_url) {
+      return res.status(400).json({ error: 'Content or media is required' });
+    }
+    
+    // Verify conversation belongs to company
+    const convCheck = await pool.query(
+      'SELECT id FROM conversations WHERE id = $1 AND company_id = $2',
+      [id, payload.companyId]
+    );
+    
+    if (convCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    
+    const result = await pool.query(
+      `INSERT INTO messages (conversation_id, sender_type, sender_id, content, media_url, media_type, status, created_at)
+       VALUES ($1, 'agent', $2, $3, $4, $5, 'sent', NOW())
+       RETURNING *`,
+      [id, payload.userId, content, media_url, media_type]
+    );
+    
+    // Update conversation last_message_at
+    await pool.query(
+      'UPDATE conversations SET last_message_at = NOW(), updated_at = NOW() WHERE id = $1',
+      [id]
+    );
+    
+    res.status(201).json({ message: result.rows[0] });
+  } catch (error) {
+    console.error('Send message error:', error);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+// ===== NOTIFICATION PREFERENCES ROUTES =====
+
+app.get('/api/notification_preferences', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    
+    // Return default preferences for now
+    // You can create a notification_preferences table later if needed
+    res.json({
+      notification_preferences: [{
+        id: '1',
+        user_id: payload.userId,
+        email_notifications: true,
+        push_notifications: true,
+        sound_enabled: true,
+        new_message: true,
+        new_conversation: true,
+        assignment: true
+      }]
+    });
+  } catch (error) {
+    console.error('Get notification preferences error:', error);
+    res.status(500).json({ error: 'Failed to get notification preferences' });
+  }
+});
+
+app.patch('/api/notification_preferences', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    
+    // For now, just return success
+    // Implement actual storage later if needed
+    res.json({
+      notification_preferences: {
+        id: '1',
+        user_id: payload.userId,
+        ...req.body
+      }
+    });
+  } catch (error) {
+    console.error('Update notification preferences error:', error);
+    res.status(500).json({ error: 'Failed to update notification preferences' });
+  }
+});
+
 // ===== HEALTH CHECK =====
 
 app.get('/api/health', async (req: Request, res: Response) => {
