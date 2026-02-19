@@ -187,10 +187,10 @@ app.get('/api/auth/me', authMiddleware, async (req: Request, res: Response) => {
     const result = await pool.query(
       `SELECT u.id, u.email, p.full_name, p.avatar_url, p.status, p.company_id,
               ur.role, c.name as company_name, c.slug as company_slug
-       FROM auth.users u
-       LEFT JOIN public.profiles p ON p.user_id = u.id
-       LEFT JOIN public.user_roles ur ON ur.user_id = u.id
-       LEFT JOIN public.companies c ON c.id = p.company_id
+       FROM auth_users u
+       LEFT JOIN profiles p ON p.user_id = u.id
+       LEFT JOIN user_roles ur ON ur.user_id = u.id
+       LEFT JOIN companies c ON c.id = p.company_id
        WHERE u.id = $1`,
       [payload.userId]
     );
