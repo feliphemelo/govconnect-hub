@@ -54,7 +54,7 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
 
     // Check if user exists
     const existingUser = await pool.query(
-      'SELECT id FROM auth.users WHERE email = $1',
+      'SELECT id FROM auth_users WHERE email = $1',
       [email]
     );
 
@@ -67,15 +67,27 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
 
     // Create user
     const userResult = await pool.query(
-      `INSERT INTO auth.users (email, encrypted_password, email_confirmed_at, role, raw_user_meta_data, created_at, updated_at)
-       VALUES ($1, $2, NOW(), 'authenticated', $3, NOW(), NOW())
+      `INSERT INTO auth_users (email, password_hash, created_at, updated_at)
+       VALUES ($1, $2, NOW(), NOW())
        RETURNING id, email, created_at`,
-      [email, hashedPassword, JSON.stringify({ full_name, company_id })]
+      [email, hashedPassword]
     );
 
     const user = userResult.rows[0];
 
-    // Profile and user_role will be created automatically by trigger
+    // Create profile
+    await pool.query(
+      `INSERT INTO profiles (user_id, company_id, full_name, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, true, NOW(), NOW())`,
+      [user.id, company_id, full_name]
+    );
+
+    // Create user role
+    await pool.query(
+      `INSERT INTO user_roles (user_id, company_id, role, created_at)
+       VALUES ($1, $2, 'agent', NOW())`,
+      [user.id, company_id]
+    );
 
     // Generate token
     const token = generateToken({
@@ -106,7 +118,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
 
     // Get user
     const userResult = await pool.query(
-      'SELECT id, email, encrypted_password FROM auth.users WHERE email = $1',
+      'SELECT id, email, password_hash FROM auth_users WHERE email = $1',
       [email]
     );
 
@@ -117,7 +129,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     const user = userResult.rows[0];
 
     // Verify password
-    const isValid = await comparePassword(password, user.encrypted_password);
+    const isValid = await comparePassword(password, user.password_hash);
     if (!isValid) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -126,8 +138,8 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     const profileResult = await pool.query(
       `SELECT p.company_id, p.full_name, p.avatar_url, p.status,
               ur.role
-       FROM public.profiles p
-       LEFT JOIN public.user_roles ur ON ur.user_id = p.user_id
+       FROM profiles p
+       LEFT JOIN user_roles ur ON ur.user_id = p.user_id
        WHERE p.user_id = $1
        LIMIT 1`,
       [user.id]
