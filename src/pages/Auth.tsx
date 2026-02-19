@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { MessageSquare, Eye, EyeOff } from "lucide-react";
+
+const API_URL = 'https://atendimento.nextplan.tec.br/api';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -25,29 +26,74 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        console.log('🔵 Fazendo login com fetch direto...');
+        
+        const response = await fetch(`${API_URL}/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Login failed' }));
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('🟢 Login successful:', data);
+
+        // Salvar token no localStorage
+        localStorage.setItem('govchat_token', data.token);
+
+        // Disparar evento de auth state change
+        window.dispatchEvent(new CustomEvent('authStateChange', { 
+          detail: { event: 'SIGNED_IN', session: { access_token: data.token, user: data.user } }
+        }));
+
+        toast({
+          title: "Login realizado!",
+          description: "Bem-vindo ao GovChat",
+        });
+
         navigate("/dashboard");
       } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { full_name: fullName },
-            emailRedirectTo: window.location.origin,
+        const response = await fetch(`${API_URL}/auth/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({ 
+            email, 
+            password,
+            full_name: fullName,
+          }),
         });
-        if (error) throw error;
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Registration failed' }));
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Salvar token
+        localStorage.setItem('govchat_token', data.token);
+
         toast({
           title: "Cadastro realizado!",
-          description: "Verifique seu e-mail para confirmar a conta.",
+          description: "Sua conta foi criada com sucesso.",
         });
+
+        navigate("/dashboard");
       }
     } catch (error: any) {
+      console.error('🔴 Auth error:', error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: error.message,
+        description: error.message || "Falha na autenticação",
       });
     } finally {
       setLoading(false);
@@ -55,18 +101,10 @@ export default function Auth() {
   };
 
   const handleForgotPassword = async () => {
-    if (!email) {
-      toast({ variant: "destructive", title: "Informe seu e-mail" });
-      return;
-    }
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth`,
+    toast({ 
+      title: "Funcionalidade em desenvolvimento", 
+      description: "Entre em contato com o administrador para resetar sua senha." 
     });
-    if (error) {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
-    } else {
-      toast({ title: "E-mail enviado", description: "Verifique sua caixa de entrada." });
-    }
   };
 
   return (
@@ -81,22 +119,22 @@ export default function Auth() {
             <MessageSquare className="h-7 w-7 text-primary-foreground" />
           </div>
           <div>
-            <CardTitle className="text-2xl">GovChat</CardTitle>
-            <CardDescription>
-              {isLogin ? "Entre na sua conta" : "Crie sua conta"}
-            </CardDescription>
+            <CardTitle className="text-2xl font-bold">GovChat</CardTitle>
+            <CardDescription>Sistema de Atendimento ao Cidadão</CardDescription>
           </div>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="space-y-2">
-                <Label htmlFor="fullName">Nome completo</Label>
+                <Label htmlFor="fullName">Nome Completo</Label>
                 <Input
                   id="fullName"
+                  type="text"
+                  placeholder="Seu nome"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Seu nome"
                   required={!isLogin}
                 />
               </div>
@@ -107,22 +145,33 @@ export default function Auth() {
               <Input
                 id="email"
                 type="email"
+                placeholder="seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.gov.br"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Senha</Label>
+                {isLogin && (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Esqueceu a senha?
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
                   required
                   minLength={6}
                 />
@@ -136,30 +185,20 @@ export default function Auth() {
               </div>
             </div>
 
-            {isLogin && (
-              <button
-                type="button"
-                onClick={handleForgotPassword}
-                className="text-sm text-primary hover:underline"
-              >
-                Esqueceu a senha?
-              </button>
-            )}
-
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Aguarde..." : isLogin ? "Entrar" : "Cadastrar"}
             </Button>
-          </form>
 
-          <div className="mt-4 text-center text-sm text-muted-foreground">
-            {isLogin ? "Não tem conta? " : "Já tem conta? "}
-            <button
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-primary hover:underline font-medium"
-            >
-              {isLogin ? "Cadastre-se" : "Faça login"}
-            </button>
-          </div>
+            <div className="text-center text-sm">
+              <button
+                type="button"
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-primary hover:underline"
+              >
+                {isLogin ? "Não tem conta? Cadastre-se" : "Já tem conta? Faça login"}
+              </button>
+            </div>
+          </form>
         </CardContent>
       </Card>
     </div>
