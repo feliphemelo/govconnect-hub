@@ -122,7 +122,7 @@ class GovChatClient {
 
         this.token = result.token;
         localStorage.setItem('govchat_token', result.token);
-        console.log('🟢 Login successful, token saved');
+        console.log('🟢 Login successful, token:', result.token.substring(0, 20) + '...');
         
         this.notifyAuthListeners('SIGNED_IN', { access_token: result.token, user: result.user });
 
@@ -198,27 +198,105 @@ class GovChatClient {
     },
   };
 
-  // Simple table helper
-  from(table: string) {
+  // Realtime channels (stub - não suportado no backend atual)
+  channel(name: string) {
+    console.log('⚠️ Realtime channels not supported, returning stub');
     return {
-      select: async (columns?: string) => {
+      on: (event: string, filter: any, callback: any) => {
+        console.log('⚠️ Realtime event listener not supported:', event);
+        return this;
+      },
+      subscribe: (callback?: any) => {
+        console.log('⚠️ Realtime subscription not supported');
+        if (callback) callback('SUBSCRIBED');
+        return this;
+      },
+      unsubscribe: () => {
+        console.log('⚠️ Realtime unsubscribe not supported');
+        return Promise.resolve({ error: null });
+      },
+    };
+  }
+
+  // Table query builder
+  from(table: string) {
+    const self = this;
+    
+    return {
+      select: (columns?: string) => {
+        return {
+          eq: async (column: string, value: any) => {
+            try {
+              // Para queries com filtro, assumir que virá do backend
+              const data = await self.request(`/${table}?${column}=${value}`);
+              return { data, error: null };
+            } catch (error: any) {
+              return { data: null, error: { message: error.message } };
+            }
+          },
+          single: async () => {
+            try {
+              const data = await self.request(`/${table}`);
+              return { data: data?.[0] || null, error: null };
+            } catch (error: any) {
+              return { data: null, error: { message: error.message } };
+            }
+          },
+          then: async (resolve: any) => {
+            try {
+              const data = await self.request(`/${table}`);
+              resolve({ data, error: null });
+            } catch (error: any) {
+              resolve({ data: null, error: { message: error.message } });
+            }
+          }
+        };
+      },
+      insert: async (values: any) => {
         try {
-          const data = await this.request(`/${table}`);
-          return { data, error: null };
+          const data = await self.request(`/${table}`, {
+            method: 'POST',
+            body: JSON.stringify(values),
+          });
+          return { 
+            data, 
+            error: null,
+            select: () => ({
+              single: async () => ({ data, error: null })
+            })
+          };
         } catch (error: any) {
           return { data: null, error: { message: error.message } };
         }
       },
-      insert: async (values: any) => {
-        try {
-          const data = await this.request(`/${table}`, {
-            method: 'POST',
-            body: JSON.stringify(values),
-          });
-          return { data, error: null };
-        } catch (error: any) {
-          return { data: null, error: { message: error.message } };
-        }
+      update: (values: any) => {
+        return {
+          eq: async (column: string, value: any) => {
+            try {
+              const data = await self.request(`/${table}/${value}`, {
+                method: 'PATCH',
+                body: JSON.stringify(values),
+              });
+              return { data, error: null };
+            } catch (error: any) {
+              return { data: null, error: { message: error.message } };
+            }
+          }
+        };
+      },
+      delete: () => {
+        return {
+          eq: async (column: string, value: any) => {
+            try {
+              await self.request(`/${table}/${value}`, {
+                method: 'DELETE',
+              });
+              return { error: null };
+            } catch (error: any) {
+              return { error: { message: error.message } };
+            }
+          }
+        };
       },
     };
   }
