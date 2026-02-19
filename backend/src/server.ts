@@ -8,6 +8,7 @@ import { pool } from './config/database';
 import { hashPassword, comparePassword, generateToken, verifyToken } from './utils/auth';
 import type { JWTPayload } from './types';
 import { ChatWebSocketServer } from './websocket';
+import { whatsappService } from './services/whatsapp.service';
 
 dotenv.config();
 
@@ -1162,7 +1163,7 @@ app.delete('/api/whatsapp/config/:id', authMiddleware, async (req: Request, res:
   }
 });
 
-// Get QR Code for WhatsApp instance
+// Get QR Code for WhatsApp instance (BAILEYS REAL)
 app.get('/api/whatsapp/config/:id/qrcode', authMiddleware, async (req: Request, res: Response) => {
   try {
     const payload = (req as any).user as JWTPayload;
@@ -1180,81 +1181,99 @@ app.get('/api/whatsapp/config/:id/qrcode', authMiddleware, async (req: Request, 
 
     const instance = result.rows[0];
 
-    // Generate QR code data (in production, this would be from real WhatsApp API)
-    const qrCodeData = JSON.stringify({
-      instance_id: id,
-      instance_name: instance.instance_name,
-      phone_number: instance.phone_number,
-      timestamp: Date.now(),
-      expires_at: Date.now() + 60000 // 1 minute
-    });
+    // Iniciar instância Baileys REAL
+    console.log(`🚀 Iniciando instância Baileys: ${id}`);
+    const qrCode = await whatsappService.startInstance(id, payload.companyId);
 
-    // Generate QR code as data URL
-    const qrCodeUrl = await QRCode.toDataURL(qrCodeData, {
-      width: 300,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
+    // Se QR Code já foi gerado, retornar
+    if (qrCode) {
+      return res.json({ 
+        qr_code: qrCode,
+        status: 'connecting',
+        expires_at: new Date(Date.now() + 60000).toISOString(),
+        message: 'Escaneie o QR Code com seu WhatsApp'
+      });
+    }
+
+    // Se já está conectada, retornar status
+    const status = whatsappService.getInstanceStatus(id);
+    if (status === 'connected') {
+      return res.json({ 
+        qr_code: null,
+        status: 'connected',
+        message: 'WhatsApp já está conectado'
+      });
+    }
+
+    // Aguardar QR Code ser gerado (polling do banco)
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const qrResult = await pool.query(
+        'SELECT qr_code, status FROM whatsapp_instances WHERE id = $1',
+        [id]
+      );
+      
+      if (qrResult.rows[0]?.qr_code) {
+        return res.json({ 
+          qr_code: qrResult.rows[0].qr_code,
+          status: qrResult.rows[0].status,
+          expires_at: new Date(Date.now() + 60000).toISOString(),
+          message: 'Escaneie o QR Code com seu WhatsApp'
+        });
       }
-    });
+      
+      attempts++;
+    }
 
-    // Update instance with QR code and set status to connecting
-    await pool.query(
-      `UPDATE whatsapp_instances 
-       SET qr_code = $1, status = 'connecting', updated_at = NOW()
-       WHERE id = $2`,
-      [qrCodeUrl, id]
-    );
-
-    res.json({ 
-      qr_code: qrCodeUrl,
-      status: 'connecting',
-      expires_at: new Date(Date.now() + 60000).toISOString(), // 1 minute
-      message: 'Escaneie o QR Code com seu WhatsApp'
-    });
+    // Timeout
+    res.status(408).json({ error: 'Timeout aguardando QR Code' });
   } catch (error) {
     console.error('Get QR Code error:', error);
     res.status(500).json({ error: 'Failed to get QR Code' });
   }
 });
 
-// Simulate WhatsApp connection (mock endpoint)
+// Check WhatsApp connection status
 app.post('/api/whatsapp/config/:id/connect', authMiddleware, async (req: Request, res: Response) => {
   try {
     const payload = (req as any).user as JWTPayload;
     const { id } = req.params;
 
-    // Simulate connection after QR code scan
-    await pool.query(
-      `UPDATE whatsapp_instances 
-       SET status = 'connected', updated_at = NOW()
-       WHERE id = $1 AND company_id = $2`,
-      [id, payload.companyId]
-    );
-
+    // Verificar status real da instância Baileys
+    const status = whatsappService.getInstanceStatus(id);
+    
     res.json({ 
-      message: 'WhatsApp connected successfully',
-      status: 'connected'
+      message: status === 'connected' ? 'WhatsApp connected successfully' : 'Waiting for connection',
+      status: status
     });
   } catch (error) {
     console.error('Connect WhatsApp error:', error);
-    res.status(500).json({ error: 'Failed to connect WhatsApp' });
+    res.status(500).json({ error: 'Failed to check WhatsApp connection' });
   }
 });
 
-// Disconnect WhatsApp instance
+// Disconnect WhatsApp instance (BAILEYS REAL)
 app.post('/api/whatsapp/config/:id/disconnect', authMiddleware, async (req: Request, res: Response) => {
   try {
     const payload = (req as any).user as JWTPayload;
     const { id } = req.params;
 
-    await pool.query(
-      `UPDATE whatsapp_instances 
-       SET status = 'disconnected', qr_code = NULL, session_data = NULL, updated_at = NOW()
-       WHERE id = $1 AND company_id = $2`,
+    // Verificar se instância pertence à company
+    const result = await pool.query(
+      'SELECT id FROM whatsapp_instances WHERE id = $1 AND company_id = $2',
       [id, payload.companyId]
     );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'WhatsApp instance not found' });
+    }
+
+    // Desconectar via serviço Baileys REAL
+    await whatsappService.disconnectInstance(id);
 
     res.json({ 
       message: 'WhatsApp disconnected successfully',
@@ -1298,8 +1317,12 @@ const server = http.createServer(app);
 const wsServer = new ChatWebSocketServer(server);
 
 // Start server
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`🚀 GovChat Backend running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔒 CORS Origin: ${process.env.CORS_ORIGIN || '*'}`);
+  
+  // Reconectar instâncias WhatsApp ativas
+  console.log('📱 Reconectando instâncias WhatsApp...');
+  await whatsappService.reconnectAllInstances();
 });
