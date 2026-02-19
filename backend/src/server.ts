@@ -317,21 +317,23 @@ app.get('/api/contacts', authMiddleware, async (req: Request, res: Response) => 
 
     const offset = (Number(page) - 1) * Number(limit);
 
-    let query = 'SELECT * FROM public.contacts WHERE company_id = $1';
+    let query = 'SELECT * FROM contacts WHERE company_id = $1';
     const params: any[] = [payload.companyId];
 
     if (search) {
-      query += ' AND (name ILIKE $3 OR phone ILIKE $3 OR email ILIKE $3)';
+      query += ' AND (name ILIKE $2 OR phone ILIKE $2 OR email ILIKE $2)';
       params.push(`%${search}%`);
+      query += ' ORDER BY created_at DESC LIMIT $3 OFFSET $4';
+      params.push(Number(limit), offset);
+    } else {
+      query += ' ORDER BY created_at DESC LIMIT $2 OFFSET $3';
+      params.push(Number(limit), offset);
     }
 
-    query += ' ORDER BY created_at DESC LIMIT $2 OFFSET $3';
-    params.push(Number(limit), offset);
-
-    const result = await pool.query(query, params.length === 2 ? [params[0], params[1], offset] : params);
+    const result = await pool.query(query, params);
     
     const countResult = await pool.query(
-      'SELECT COUNT(*) FROM public.contacts WHERE company_id = $1',
+      'SELECT COUNT(*) FROM contacts WHERE company_id = $1',
       [payload.companyId]
     );
 
@@ -357,7 +359,7 @@ app.post('/api/contacts', authMiddleware, async (req: Request, res: Response) =>
     }
 
     const result = await pool.query(
-      `INSERT INTO public.contacts (company_id, name, phone, email, metadata, created_at, updated_at)
+      `INSERT INTO contacts (company_id, name, phone, email, metadata, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
        RETURNING *`,
       [payload.companyId, name, phone, email, metadata || {}]
@@ -370,6 +372,83 @@ app.post('/api/contacts', authMiddleware, async (req: Request, res: Response) =>
     }
     console.error('Create contact error:', error);
     res.status(500).json({ error: 'Failed to create contact' });
+  }
+});
+
+app.patch('/api/contacts/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+    const { name, phone, email, is_blocked, metadata } = req.body;
+
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramCount = 1;
+
+    if (name !== undefined) {
+      updates.push(`name = $${paramCount++}`);
+      values.push(name);
+    }
+    if (phone !== undefined) {
+      updates.push(`phone = $${paramCount++}`);
+      values.push(phone);
+    }
+    if (email !== undefined) {
+      updates.push(`email = $${paramCount++}`);
+      values.push(email);
+    }
+    if (is_blocked !== undefined) {
+      updates.push(`is_blocked = $${paramCount++}`);
+      values.push(is_blocked);
+    }
+    if (metadata !== undefined) {
+      updates.push(`metadata = $${paramCount++}`);
+      values.push(metadata);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    updates.push(`updated_at = NOW()`);
+    values.push(id, payload.companyId);
+
+    const result = await pool.query(
+      `UPDATE contacts SET ${updates.join(', ')}
+       WHERE id = $${paramCount} AND company_id = $${paramCount + 1}
+       RETURNING *`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+
+    res.json({ contact: result.rows[0] });
+  } catch (error) {
+    console.error('Update contact error:', error);
+    res.status(500).json({ error: 'Failed to update contact' });
+  }
+});
+
+app.delete('/api/contacts/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+
+    const result = await pool.query(
+      'DELETE FROM contacts WHERE id = $1 AND company_id = $2 RETURNING id',
+      [id, payload.companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+
+    res.json({ message: 'Contact deleted successfully' });
+  } catch (error) {
+    console.error('Delete contact error:', error);
+    res.status(500).json({ error: 'Failed to delete contact' });
   }
 });
 
