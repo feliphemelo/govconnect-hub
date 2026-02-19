@@ -4,13 +4,17 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 class GovChatClient {
   private token: string | null = null;
+  private authListeners: Array<(event: string, session: any) => void> = [];
 
   constructor() {
     // Load token from localStorage
     this.token = localStorage.getItem('govchat_token');
+    console.log('🔵 GovChatClient initialized with token:', this.token ? 'YES' : 'NO');
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
+    console.log('🔵 Request:', `${API_URL}${endpoint}`, options);
+    
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -25,144 +29,203 @@ class GovChatClient {
       headers,
     });
 
+    console.log('🔵 Response status:', response.status);
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Request failed' }));
+      console.log('🔴 Response error:', error);
       throw new Error(error.error || `HTTP ${response.status}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('🟢 Response data:', data);
+    return data;
   }
 
-  // Auth
+  private notifyAuthListeners(event: string, session: any) {
+    this.authListeners.forEach(callback => callback(event, session));
+  }
+
+  // Auth object compatible with Supabase
   auth = {
-    register: async (data: { email: string; password: string; full_name: string; company_id: string }) => {
-      const result = await this.request('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-      this.token = result.token;
-      localStorage.setItem('govchat_token', result.token);
-      return result;
+    onAuthStateChange: (callback: (event: string, session: any) => void) => {
+      console.log('🔵 onAuthStateChange registered');
+      this.authListeners.push(callback);
+      
+      // Immediately call with current session
+      if (this.token) {
+        this.auth.getSession().then(({ data }) => {
+          if (data.session) {
+            callback('SIGNED_IN', data.session);
+          }
+        });
+      } else {
+        callback('SIGNED_OUT', null);
+      }
+      
+      return {
+        data: {
+          subscription: {
+            unsubscribe: () => {
+              const index = this.authListeners.indexOf(callback);
+              if (index > -1) {
+                this.authListeners.splice(index, 1);
+              }
+            }
+          }
+        }
+      };
     },
 
-    login: async (email: string, password: string) => {
-      const result = await this.request('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
-      this.token = result.token;
-      localStorage.setItem('govchat_token', result.token);
-      return result;
+    getSession: async () => {
+      console.log('🔵 getSession called');
+      try {
+        if (!this.token) {
+          console.log('🔴 No token found');
+          return { 
+            data: { session: null }, 
+            error: null 
+          };
+        }
+
+        const userData = await this.request('/auth/me');
+        console.log('🟢 getSession user data:', userData);
+        
+        return {
+          data: {
+            session: {
+              access_token: this.token,
+              user: userData.user
+            }
+          },
+          error: null
+        };
+      } catch (error: any) {
+        console.log('🔴 getSession error:', error);
+        // Token inválido, limpar
+        this.token = null;
+        localStorage.removeItem('govchat_token');
+        return {
+          data: { session: null },
+          error: { message: error.message }
+        };
+      }
     },
 
-    logout: () => {
+    signInWithPassword: async ({ email, password }: { email: string; password: string }) => {
+      console.log('🔵 signInWithPassword called with:', email);
+      try {
+        const result = await this.request('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        });
+
+        this.token = result.token;
+        localStorage.setItem('govchat_token', result.token);
+        console.log('🟢 Login successful, token saved');
+        
+        this.notifyAuthListeners('SIGNED_IN', { access_token: result.token, user: result.user });
+
+        return { 
+          data: { 
+            user: result.user, 
+            session: { access_token: result.token } 
+          }, 
+          error: null 
+        };
+      } catch (error: any) {
+        console.log('🔴 Login error:', error);
+        return { 
+          data: { user: null, session: null }, 
+          error: { message: error.message } 
+        };
+      }
+    },
+
+    signUp: async ({ email, password, options }: any) => {
+      try {
+        const result = await this.request('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ 
+            email, 
+            password,
+            full_name: options?.data?.full_name || '',
+            company_id: options?.data?.company_id || ''
+          }),
+        });
+
+        this.token = result.token;
+        localStorage.setItem('govchat_token', result.token);
+        
+        this.notifyAuthListeners('SIGNED_IN', { access_token: result.token, user: result.user });
+
+        return { 
+          data: { 
+            user: result.user, 
+            session: { access_token: result.token } 
+          }, 
+          error: null 
+        };
+      } catch (error: any) {
+        return { 
+          data: { user: null, session: null }, 
+          error: { message: error.message } 
+        };
+      }
+    },
+
+    signOut: async () => {
+      console.log('🔵 signOut called');
       this.token = null;
       localStorage.removeItem('govchat_token');
+      this.notifyAuthListeners('SIGNED_OUT', null);
+      return { error: null };
     },
 
     getUser: async () => {
-      return this.request('/auth/me');
+      try {
+        const userData = await this.request('/auth/me');
+        return { 
+          data: { user: userData.user }, 
+          error: null 
+        };
+      } catch (error: any) {
+        return { 
+          data: { user: null }, 
+          error: { message: error.message } 
+        };
+      }
     },
   };
 
-  // Companies
-  companies = {
-    list: async () => {
-      return this.request('/companies');
-    },
-
-    get: async (id: string) => {
-      return this.request(`/companies/${id}`);
-    },
-  };
-
-  // Profiles
-  profiles = {
-    list: async () => {
-      return this.request('/profiles');
-    },
-
-    update: async (id: string, data: any) => {
-      return this.request(`/profiles/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      });
-    },
-  };
-
-  // Contacts
-  contacts = {
-    list: async (params?: { page?: number; limit?: number; search?: string }) => {
-      const query = new URLSearchParams(params as any).toString();
-      return this.request(`/contacts?${query}`);
-    },
-
-    create: async (data: { name: string; phone: string; email?: string; metadata?: any }) => {
-      return this.request('/contacts', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    },
-
-    get: async (id: string) => {
-      return this.request(`/contacts/${id}`);
-    },
-
-    update: async (id: string, data: any) => {
-      return this.request(`/contacts/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      });
-    },
-  };
-
-  // Sectors
-  sectors = {
-    list: async () => {
-      return this.request('/sectors');
-    },
-
-    create: async (data: { name: string; description?: string }) => {
-      return this.request('/sectors', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    },
-  };
-
-  // Health
-  health = async () => {
-    return this.request('/health');
-  };
+  // Simple table helper
+  from(table: string) {
+    return {
+      select: async (columns?: string) => {
+        try {
+          const data = await this.request(`/${table}`);
+          return { data, error: null };
+        } catch (error: any) {
+          return { data: null, error: { message: error.message } };
+        }
+      },
+      insert: async (values: any) => {
+        try {
+          const data = await this.request(`/${table}`, {
+            method: 'POST',
+            body: JSON.stringify(values),
+          });
+          return { data, error: null };
+        } catch (error: any) {
+          return { data: null, error: { message: error.message } };
+        }
+      },
+    };
+  }
 }
 
-export const govChatClient = new GovChatClient();
+const govChatClient = new GovChatClient();
 
-// Export for compatibility with existing Supabase code
-export const supabase = {
-  auth: govChatClient.auth,
-  from: (table: string) => ({
-    select: async (columns?: string) => {
-      const data = await govChatClient.request(`/${table}`);
-      return { data, error: null };
-    },
-    insert: async (values: any) => {
-      const data = await govChatClient.request(`/${table}`, {
-        method: 'POST',
-        body: JSON.stringify(values),
-      });
-      return { data, error: null };
-    },
-    update: async (values: any) => ({
-      eq: async (column: string, value: any) => {
-        // This would need the ID from context
-        return { data: null, error: new Error('Use govChatClient directly') };
-      },
-    }),
-    delete: async () => ({
-      eq: async (column: string, value: any) => {
-        return { data: null, error: new Error('Use govChatClient directly') };
-      },
-    }),
-  }),
-};
+// Export for compatibility
+export { govChatClient };
+export const supabase = govChatClient;
