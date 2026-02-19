@@ -501,6 +501,66 @@ app.post('/api/sectors', authMiddleware, async (req: Request, res: Response) => 
   }
 });
 
+app.patch('/api/sectors/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+    const { name, description } = req.body;
+
+    // Check if user is admin
+    if (payload.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can update sectors' });
+    }
+
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+
+    const result = await pool.query(
+      `UPDATE public.sectors
+       SET name = $1, description = $2, updated_at = NOW()
+       WHERE id = $3 AND company_id = $4
+       RETURNING *`,
+      [name, description, id, payload.companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Sector not found' });
+    }
+
+    res.json({ sector: result.rows[0] });
+  } catch (error) {
+    console.error('Update sector error:', error);
+    res.status(500).json({ error: 'Failed to update sector' });
+  }
+});
+
+app.delete('/api/sectors/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+
+    // Check if user is admin
+    if (payload.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can delete sectors' });
+    }
+
+    const result = await pool.query(
+      'DELETE FROM public.sectors WHERE id = $1 AND company_id = $2 RETURNING id',
+      [id, payload.companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Sector not found' });
+    }
+
+    res.json({ message: 'Sector deleted successfully' });
+  } catch (error) {
+    console.error('Delete sector error:', error);
+    res.status(500).json({ error: 'Failed to delete sector' });
+  }
+});
+
 // ===== CONVERSATIONS ROUTES =====
 
 app.get('/api/conversations', authMiddleware, async (req: Request, res: Response) => {
