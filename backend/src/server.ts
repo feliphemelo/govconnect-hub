@@ -248,6 +248,53 @@ app.get('/api/companies/:id', authMiddleware, async (req: Request, res: Response
     }
 
     res.json({ company: result.rows[0] });
+
+// ===== WHATSAPP INSTANCES ROUTES (para frontend) =====
+
+app.get('/api/whatsapp/instances', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    
+    const result = await pool.query(
+      `SELECT id, instance_name as name, status, phone_number, qr_code, created_at, updated_at
+       FROM whatsapp_instances
+       WHERE company_id = $1
+       ORDER BY created_at DESC`,
+      [payload.companyId]
+    );
+    
+    console.log(`📋 Listando ${result.rows.length} instância(s) WhatsApp para company ${payload.companyId}`);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('❌ Erro ao buscar instâncias:', error);
+    res.status(500).json({ error: 'Erro ao buscar instâncias WhatsApp' });
+  }
+});
+
+app.get('/api/whatsapp/instances/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const payload = (req as any).user as JWTPayload;
+    
+    const result = await pool.query(
+      `SELECT id, instance_name as name, status, phone_number, qr_code, created_at, updated_at
+       FROM whatsapp_instances
+       WHERE id = $1 AND company_id = $2`,
+      [id, payload.companyId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Instância não encontrada' });
+    }
+    
+    console.log(`📋 Buscando instância WhatsApp: ${id}`);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('❌ Erro ao buscar instância:', error);
+    res.status(500).json({ error: 'Erro ao buscar instância WhatsApp' });
+  }
+});
+
   } catch (error) {
     console.error('Get company error:', error);
     res.status(500).json({ error: 'Failed to get company' });
@@ -1301,6 +1348,37 @@ app.get('/api/health', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
       database: 'disconnected'
     });
+  }
+});
+
+
+// ===== WHATSAPP INSTANCES ROUTES =====
+app.get('/api/whatsapp/instances', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const result = await pool.query(
+      'SELECT id, instance_name as name, status, phone_number, qr_code, created_at, updated_at FROM whatsapp_instances WHERE company_id = $1 ORDER BY created_at DESC',
+      [payload.companyId]
+    );
+    console.log('📋 GET /api/whatsapp/instances - ' + result.rows.length + ' instâncias');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('❌ Erro:', error);
+    res.status(500).json({ error: 'Erro ao buscar instâncias' });
+  }
+});
+
+app.get('/api/whatsapp/instances/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const result = await pool.query(
+      'SELECT id, instance_name as name, status, phone_number, qr_code FROM whatsapp_instances WHERE id = $1 AND company_id = $2',
+      [req.params.id, payload.companyId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
