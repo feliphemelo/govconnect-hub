@@ -332,11 +332,19 @@ cd "$PROJECT_DIR"
 cat > .env << ENDOFENV
 VITE_API_URL=https://$DOMAIN/api
 VITE_DOMAIN=$DOMAIN
+
+# Variáveis Supabase (valores dummy para compatibilidade)
+VITE_SUPABASE_URL=https://dummy.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1bW15IiwiaWF0IjowLCJleHAiOjk5OTk5OTk5OTl9.dummy
+VITE_SUPABASE_PROJECT_ID=dummy
 ENDOFENV
 
 # Instalar dependencias do frontend
 log_info "Instalando dependencias do frontend..."
 npm install
+
+# Limpar cache do Vite
+rm -rf node_modules/.vite
 
 # Build frontend
 log_info "Building frontend..."
@@ -435,47 +443,87 @@ fi
 
 log_info "Criando empresa e administrador..."
 
-# Gerar hash da senha (usando Node.js para bcrypt)
-HASHED_PASSWORD=$(node -e "const bcrypt = require('bcrypt'); bcrypt.hash('$ADMIN_PASSWORD', 10, (e,h) => console.log(h))")
+# Usar Node.js com bcrypt para criar admin
+cd "$BACKEND_DIR"
+node << 'ENDOFNODE'
+const bcrypt = require('bcrypt');
+const { Pool } = require('pg');
 
-# SQL para criar empresa e admin
-PGPASSWORD=$DB_PASSWORD psql -h localhost -U $DB_USER -d $DB_NAME << ENDOFSQL
--- Criar empresa
-INSERT INTO public.companies (name, slug, plan, max_users, max_ai_interactions, is_active, created_at, updated_at)
-VALUES ('$COMPANY_NAME', '$COMPANY_SLUG', 'enterprise', 100, 50000, true, NOW(), NOW())
-ON CONFLICT (slug) DO NOTHING
-RETURNING id;
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+});
 
--- Criar usuario admin
-INSERT INTO auth.users (email, encrypted_password, email_confirmed_at, role, raw_user_meta_data, created_at, updated_at)
-VALUES (
-  '$ADMIN_EMAIL',
-  '$HASHED_PASSWORD',
-  NOW(),
-  'authenticated',
-  jsonb_build_object('full_name', '$ADMIN_NAME', 'company_id', (SELECT id FROM public.companies WHERE slug = '$COMPANY_SLUG')),
-  NOW(),
-  NOW()
-)
-ON CONFLICT (email) DO NOTHING;
+const COMPANY_NAME = process.argv[1];
+const COMPANY_SLUG = process.argv[2];
+const ADMIN_EMAIL = process.argv[3];
+const ADMIN_NAME = process.argv[4];
+const ADMIN_PASSWORD = process.argv[5];
 
--- Atualizar role para admin
-UPDATE public.user_roles 
-SET role = 'admin'
-WHERE user_id = (SELECT id FROM auth.users WHERE email = '$ADMIN_EMAIL');
+(async () => {
+  try {
+    // Criar empresa
+    const companyResult = await pool.query(
+      `INSERT INTO companies (name, slug, plan, max_users, max_ai_interactions, is_active, created_at, updated_at)
+       VALUES ($1, $2, 'enterprise', 100, 50000, true, NOW(), NOW())
+       ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+       RETURNING id`,
+      [COMPANY_NAME, COMPANY_SLUG]
+    );
+    const companyId = companyResult.rows[0].id;
+    console.log('✅ Empresa criada:', COMPANY_NAME);
 
--- Criar setor padrao
-INSERT INTO public.sectors (company_id, name, description, is_active, created_at, updated_at)
-VALUES (
-  (SELECT id FROM public.companies WHERE slug = '$COMPANY_SLUG'),
-  'Atendimento Geral',
-  'Setor de atendimento geral ao publico',
-  true,
-  NOW(),
-  NOW()
-)
-ON CONFLICT DO NOTHING;
-ENDOFSQL
+    // Hash da senha
+    const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
+
+    // Criar usuário
+    const userResult = await pool.query(
+      `INSERT INTO auth_users (email, password_hash, created_at, updated_at)
+       VALUES ($1, $2, NOW(), NOW())
+       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
+       RETURNING id`,
+      [ADMIN_EMAIL, passwordHash]
+    );
+    const userId = userResult.rows[0].id;
+    console.log('✅ Usuário criado:', ADMIN_EMAIL);
+
+    // Criar perfil
+    await pool.query(
+      `INSERT INTO profiles (user_id, company_id, full_name, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, true, NOW(), NOW())
+       ON CONFLICT (user_id) DO UPDATE SET full_name = EXCLUDED.full_name, company_id = EXCLUDED.company_id`,
+      [userId, companyId, ADMIN_NAME]
+    );
+    console.log('✅ Perfil criado');
+
+    // Criar role admin
+    await pool.query(
+      `INSERT INTO user_roles (user_id, company_id, role, created_at)
+       VALUES ($1, $2, 'admin', NOW())
+       ON CONFLICT (user_id, role, company_id) DO NOTHING`,
+      [userId, companyId]
+    );
+    console.log('✅ Role admin atribuída');
+
+    // Criar setor padrão
+    await pool.query(
+      `INSERT INTO sectors (company_id, name, description, is_active, created_at, updated_at)
+       VALUES ($1, 'Atendimento Geral', 'Setor de atendimento geral ao público', true, NOW(), NOW())`,
+      [companyId]
+    );
+    console.log('✅ Setor padrão criado');
+
+    await pool.end();
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Erro:', error.message);
+    process.exit(1);
+  }
+})();
+ENDOFNODE "$COMPANY_NAME" "$COMPANY_SLUG" "$ADMIN_EMAIL" "$ADMIN_NAME" "$ADMIN_PASSWORD"
 
 log_success "Empresa e administrador criados"
 
