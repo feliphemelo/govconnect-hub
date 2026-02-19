@@ -239,6 +239,64 @@ class WhatsAppService {
   }
 
   /**
+   * Enviar mensagem genérica (texto, imagem, vídeo, áudio, documento)
+   */
+  async sendMessage(instanceId: string, to: string, content: string, type: 'text' | 'image' | 'video' | 'audio' | 'document' = 'text', mediaUrl?: string): Promise<any> {
+    try {
+      console.log(`📤 Enviando mensagem via WhatsApp para ${to}: "${content}" (tipo: ${type})`);
+      
+      const instance = this.instances.get(instanceId);
+      if (!instance || instance.status !== 'connected') {
+        throw new Error('Instância não conectada');
+      }
+
+      // Formatar número (garantir que tem o sufixo correto)
+      // Se já tem @, usar como está, senão adicionar @s.whatsapp.net
+      const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`;
+
+      let result;
+      
+      if (type === 'text') {
+        result = await instance.socket.sendMessage(jid, { text: content });
+      } else if (type === 'image' && mediaUrl) {
+        result = await instance.socket.sendMessage(jid, { 
+          image: { url: mediaUrl }, 
+          caption: content 
+        });
+      } else if (type === 'video' && mediaUrl) {
+        result = await instance.socket.sendMessage(jid, { 
+          video: { url: mediaUrl }, 
+          caption: content 
+        });
+      } else if (type === 'audio' && mediaUrl) {
+        result = await instance.socket.sendMessage(jid, { 
+          audio: { url: mediaUrl }
+        });
+      } else if (type === 'document' && mediaUrl) {
+        result = await instance.socket.sendMessage(jid, { 
+          document: { url: mediaUrl }, 
+          fileName: content 
+        });
+      } else {
+        throw new Error(`Tipo de mensagem não suportado: ${type}`);
+      }
+      
+      console.log(`✅ Mensagem ${type} enviada com sucesso para ${to}!`);
+      return result;
+    } catch (error) {
+      console.error(`❌ Erro ao enviar mensagem:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obter instância (para uso interno)
+   */
+  getInstance(instanceId: string): WhatsAppInstance | undefined {
+    return this.instances.get(instanceId);
+  }
+
+  /**
    * Obter status da instância
    */
   getInstanceStatus(instanceId: string): string {

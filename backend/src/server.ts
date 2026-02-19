@@ -971,39 +971,100 @@ app.post('/api/conversations/:id/messages', authMiddleware, async (req: Request,
   try {
     const payload = (req as any).user as JWTPayload;
     const { id } = req.params;
-    const { content, media_url, media_type } = req.body;
+    const { content, message_type = 'text', media_url } = req.body;
+    
+    console.log(`📨 POST /api/conversations/${id}/messages - Enviando mensagem WhatsApp`);
+    console.log(`   Content: "${content}"`);
+    console.log(`   Type: ${message_type}`);
+    console.log(`   Media URL: ${media_url || 'N/A'}`);
     
     if (!content && !media_url) {
       return res.status(400).json({ error: 'Content or media is required' });
     }
     
-    // Verify conversation belongs to company
-    const convCheck = await pool.query(
-      'SELECT id FROM conversations WHERE id = $1 AND company_id = $2',
+    // Buscar chat no banco (whatsapp_chats)
+    console.log(`🔍 Buscando chat com ID: ${id}`);
+    const chatResult = await pool.query(
+      `SELECT id, chat_id, contact_number, instance_id, company_id 
+       FROM whatsapp_chats 
+       WHERE id = $1 AND company_id = $2`,
       [id, payload.companyId]
     );
     
-    if (convCheck.rows.length === 0) {
+    if (chatResult.rows.length === 0) {
+      console.log(`❌ Chat não encontrado: ${id}`);
       return res.status(404).json({ error: 'Conversation not found' });
     }
     
+    const chat = chatResult.rows[0];
+    console.log(`✅ Chat encontrado: chat_id=${chat.chat_id}, instance_id=${chat.instance_id}`);
+    
+    // Enviar mensagem via WhatsApp (Baileys)
+    try {
+      console.log(`📤 Chamando whatsappService.sendMessage...`);
+      const waResult = await whatsappService.sendMessage(
+        chat.instance_id,
+        chat.chat_id,
+        content,
+        message_type,
+        media_url
+      );
+      console.log(`✅ Mensagem WhatsApp enviada com sucesso!`, waResult);
+    } catch (waError: any) {
+      console.error(`❌ Erro ao enviar via WhatsApp:`, waError.message);
+      // Continuar mesmo com erro - salvar no banco
+    }
+    
+    // Salvar mensagem no banco
+    const messageId = require('crypto').randomUUID();
+    const timestamp = Math.floor(Date.now() / 1000);
+    
+    console.log(`💾 Salvando mensagem no banco...`);
     const result = await pool.query(
-      `INSERT INTO messages (conversation_id, sender_type, sender_id, content, media_url, media_type, status, created_at)
-       VALUES ($1, 'agent', $2, $3, $4, $5, 'sent', NOW())
+      `INSERT INTO whatsapp_messages 
+       (id, instance_id, company_id, message_id, from_number, to_number, message_type, content, is_from_me, chat_id, timestamp, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, $10, NOW())
        RETURNING *`,
-      [id, payload.userId, content, media_url, media_type]
+      [
+        messageId,
+        chat.instance_id,
+        chat.company_id,
+        messageId,
+        'agent', // from_number
+        chat.contact_number, // to_number
+        message_type,
+        content,
+        chat.chat_id,
+        timestamp
+      ]
     );
     
-    // Update conversation last_message_at
+    // Atualizar chat
     await pool.query(
-      'UPDATE conversations SET last_message_at = NOW(), updated_at = NOW() WHERE id = $1',
-      [id]
+      `UPDATE whatsapp_chats 
+       SET last_message = $1, 
+           last_message_at = NOW(), 
+           total_messages = total_messages + 1,
+           updated_at = NOW()
+       WHERE id = $2`,
+      [content, id]
     );
     
-    res.status(201).json({ message: result.rows[0] });
-  } catch (error) {
-    console.error('Send message error:', error);
-    res.status(500).json({ error: 'Failed to send message' });
+    console.log(`✅ Mensagem salva no banco com sucesso!`);
+    
+    res.status(201).json({ 
+      message: {
+        ...result.rows[0],
+        id: result.rows[0].id,
+        conversation_id: id,
+        sender_type: 'agent',
+        sender_id: payload.userId,
+        status: 'sent'
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Send message error:', error);
+    res.status(500).json({ error: 'Failed to send message', details: error.message });
   }
 });
 
