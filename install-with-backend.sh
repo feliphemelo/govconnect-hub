@@ -227,6 +227,22 @@ apt-get upgrade -y -qq
 log_info "Instalando dependencias..."
 apt-get install -y -qq curl wget git nginx postgresql postgresql-contrib certbot python3-certbot-nginx build-essential
 
+# Iniciar e habilitar PostgreSQL
+log_info "Iniciando PostgreSQL..."
+systemctl start postgresql
+systemctl enable postgresql
+sleep 2
+
+# Verificar se PostgreSQL está rodando
+if ! systemctl is-active --quiet postgresql; then
+    log_error "PostgreSQL nao iniciou corretamente"
+fi
+
+# Verificar se usuario postgres existe
+if ! id -u postgres &>/dev/null; then
+    log_error "Usuario postgres nao foi criado"
+fi
+
 # Instalar Node.js 20
 log_info "Instalando Node.js 20..."
 if ! command -v node &> /dev/null || [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" -lt 20 ]; then
