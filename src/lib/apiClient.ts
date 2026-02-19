@@ -143,6 +143,23 @@ class APIClient {
       this.request(`/sectors/${id}`, { method: 'DELETE' }),
   };
 
+  // Users
+  users = {
+    list: () => this.request('/users'),
+    create: (data: { email: string; password: string; full_name: string; role?: string }) =>
+      this.request('/users', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: any) =>
+      this.request(`/users/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      this.request(`/users/${id}`, { method: 'DELETE' }),
+  };
+
   // Companies
   companies = {
     list: () => this.request('/companies'),

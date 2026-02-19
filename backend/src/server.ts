@@ -561,6 +561,196 @@ app.delete('/api/sectors/:id', authMiddleware, async (req: Request, res: Respons
   }
 });
 
+// ===== USERS ROUTES =====
+
+app.get('/api/users', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+
+    const result = await pool.query(
+      `SELECT 
+        u.id, u.email, u.created_at,
+        p.full_name, p.avatar_url, p.is_active,
+        ur.role
+       FROM auth_users u
+       LEFT JOIN profiles p ON u.id = p.user_id
+       LEFT JOIN user_roles ur ON u.id = ur.user_id
+       WHERE ur.company_id = $1
+       ORDER BY p.full_name`,
+      [payload.companyId]
+    );
+
+    res.json({ users: result.rows });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+});
+
+app.post('/api/users', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+
+    // Only admins can create users
+    if (payload.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can create users' });
+    }
+
+    const { email, password, full_name, role = 'agent' } = req.body;
+
+    if (!email || !password || !full_name) {
+      return res.status(400).json({ error: 'Email, password and full name are required' });
+    }
+
+    // Check if user exists
+    const existingUser = await pool.query(
+      'SELECT id FROM auth_users WHERE email = $1',
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+
+    // Hash password
+    const hashedPassword = await hashPassword(password);
+
+    // Create user
+    const userResult = await pool.query(
+      `INSERT INTO auth_users (email, password_hash, created_at, updated_at)
+       VALUES ($1, $2, NOW(), NOW())
+       RETURNING id, email, created_at`,
+      [email, hashedPassword]
+    );
+
+    const user = userResult.rows[0];
+
+    // Create profile
+    await pool.query(
+      `INSERT INTO profiles (user_id, company_id, full_name, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, true, NOW(), NOW())`,
+      [user.id, payload.companyId, full_name]
+    );
+
+    // Create user role
+    await pool.query(
+      `INSERT INTO user_roles (user_id, company_id, role, created_at)
+       VALUES ($1, $2, $3, NOW())`,
+      [user.id, payload.companyId, role]
+    );
+
+    res.status(201).json({ 
+      user: { 
+        id: user.id, 
+        email: user.email,
+        full_name,
+        role,
+        is_active: true
+      } 
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+app.patch('/api/users/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+    const { full_name, role, is_active } = req.body;
+
+    // Only admins can update users
+    if (payload.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can update users' });
+    }
+
+    // Update profile
+    if (full_name !== undefined || is_active !== undefined) {
+      await pool.query(
+        `UPDATE profiles
+         SET full_name = COALESCE($1, full_name),
+             is_active = COALESCE($2, is_active),
+             updated_at = NOW()
+         WHERE user_id = $3 AND company_id = $4`,
+        [full_name, is_active, id, payload.companyId]
+      );
+    }
+
+    // Update role
+    if (role !== undefined) {
+      await pool.query(
+        `UPDATE user_roles
+         SET role = $1
+         WHERE user_id = $2 AND company_id = $3`,
+        [role, id, payload.companyId]
+      );
+    }
+
+    // Fetch updated user
+    const result = await pool.query(
+      `SELECT 
+        u.id, u.email,
+        p.full_name, p.is_active,
+        ur.role
+       FROM auth_users u
+       LEFT JOIN profiles p ON u.id = p.user_id
+       LEFT JOIN user_roles ur ON u.id = ur.user_id
+       WHERE u.id = $1 AND ur.company_id = $2`,
+      [id, payload.companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ user: result.rows[0] });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+app.delete('/api/users/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+
+    // Only admins can delete users
+    if (payload.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can delete users' });
+    }
+
+    // Don't allow deleting yourself
+    if (id === payload.userId) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    // Delete user_roles
+    await pool.query(
+      'DELETE FROM user_roles WHERE user_id = $1 AND company_id = $2',
+      [id, payload.companyId]
+    );
+
+    // Delete profile
+    await pool.query(
+      'DELETE FROM profiles WHERE user_id = $1 AND company_id = $2',
+      [id, payload.companyId]
+    );
+
+    // Delete user
+    await pool.query(
+      'DELETE FROM auth_users WHERE id = $1',
+      [id]
+    );
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
 // ===== CONVERSATIONS ROUTES =====
 
 app.get('/api/conversations', authMiddleware, async (req: Request, res: Response) => {
