@@ -181,6 +181,23 @@ class APIClient {
       }),
   };
 
+  // WhatsApp Configuration
+  whatsapp = {
+    getConfig: () => this.request('/whatsapp/config'),
+    createConfig: (data: any) =>
+      this.request('/whatsapp/config', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    updateConfig: (id: string, data: any) =>
+      this.request(`/whatsapp/config/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    deleteConfig: (id: string) =>
+      this.request(`/whatsapp/config/${id}`, { method: 'DELETE' }),
+  };
+
   // Health check
   health = () => this.request('/health');
 }

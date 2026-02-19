@@ -1050,6 +1050,117 @@ app.patch('/api/notification_preferences', authMiddleware, async (req: Request, 
   }
 });
 
+// ===== WHATSAPP CONFIGURATION ROUTES =====
+
+app.get('/api/whatsapp/config', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+
+    const result = await pool.query(
+      `SELECT id, instance_name, phone_number, api_key, webhook_url, status, is_active, created_at, updated_at
+       FROM whatsapp_instances
+       WHERE company_id = $1
+       ORDER BY created_at DESC`,
+      [payload.companyId]
+    );
+
+    res.json({ instances: result.rows });
+  } catch (error) {
+    console.error('Get WhatsApp config error:', error);
+    res.status(500).json({ error: 'Failed to get WhatsApp configuration' });
+  }
+});
+
+app.post('/api/whatsapp/config', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+
+    if (payload.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can configure WhatsApp' });
+    }
+
+    const { instance_name, phone_number, api_key, webhook_url } = req.body;
+
+    if (!instance_name || !phone_number) {
+      return res.status(400).json({ error: 'Instance name and phone number are required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO whatsapp_instances 
+       (company_id, instance_name, phone_number, api_key, webhook_url, status, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, 'disconnected', true, NOW(), NOW())
+       RETURNING *`,
+      [payload.companyId, instance_name, phone_number, api_key, webhook_url]
+    );
+
+    res.status(201).json({ instance: result.rows[0] });
+  } catch (error) {
+    console.error('Create WhatsApp config error:', error);
+    res.status(500).json({ error: 'Failed to create WhatsApp configuration' });
+  }
+});
+
+app.patch('/api/whatsapp/config/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+
+    if (payload.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can update WhatsApp config' });
+    }
+
+    const { instance_name, phone_number, api_key, webhook_url, is_active, status } = req.body;
+
+    const result = await pool.query(
+      `UPDATE whatsapp_instances
+       SET instance_name = COALESCE($1, instance_name),
+           phone_number = COALESCE($2, phone_number),
+           api_key = COALESCE($3, api_key),
+           webhook_url = COALESCE($4, webhook_url),
+           is_active = COALESCE($5, is_active),
+           status = COALESCE($6, status),
+           updated_at = NOW()
+       WHERE id = $7 AND company_id = $8
+       RETURNING *`,
+      [instance_name, phone_number, api_key, webhook_url, is_active, status, id, payload.companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'WhatsApp instance not found' });
+    }
+
+    res.json({ instance: result.rows[0] });
+  } catch (error) {
+    console.error('Update WhatsApp config error:', error);
+    res.status(500).json({ error: 'Failed to update WhatsApp configuration' });
+  }
+});
+
+app.delete('/api/whatsapp/config/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+
+    if (payload.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can delete WhatsApp config' });
+    }
+
+    const result = await pool.query(
+      'DELETE FROM whatsapp_instances WHERE id = $1 AND company_id = $2 RETURNING id',
+      [id, payload.companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'WhatsApp instance not found' });
+    }
+
+    res.json({ message: 'WhatsApp instance deleted successfully' });
+  } catch (error) {
+    console.error('Delete WhatsApp config error:', error);
+    res.status(500).json({ error: 'Failed to delete WhatsApp instance' });
+  }
+});
+
 // ===== HEALTH CHECK =====
 
 app.get('/api/health', async (req: Request, res: Response) => {
