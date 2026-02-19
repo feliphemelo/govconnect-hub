@@ -3,6 +3,7 @@ import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import QRCode from 'qrcode';
 import { pool } from './config/database';
 import { hashPassword, comparePassword, generateToken, verifyToken } from './utils/auth';
 import type { JWTPayload } from './types';
@@ -1158,6 +1159,110 @@ app.delete('/api/whatsapp/config/:id', authMiddleware, async (req: Request, res:
   } catch (error) {
     console.error('Delete WhatsApp config error:', error);
     res.status(500).json({ error: 'Failed to delete WhatsApp instance' });
+  }
+});
+
+// Get QR Code for WhatsApp instance
+app.get('/api/whatsapp/config/:id/qrcode', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+
+    // Get instance
+    const result = await pool.query(
+      'SELECT * FROM whatsapp_instances WHERE id = $1 AND company_id = $2',
+      [id, payload.companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'WhatsApp instance not found' });
+    }
+
+    const instance = result.rows[0];
+
+    // Generate QR code data (in production, this would be from real WhatsApp API)
+    const qrCodeData = JSON.stringify({
+      instance_id: id,
+      instance_name: instance.instance_name,
+      phone_number: instance.phone_number,
+      timestamp: Date.now(),
+      expires_at: Date.now() + 60000 // 1 minute
+    });
+
+    // Generate QR code as data URL
+    const qrCodeUrl = await QRCode.toDataURL(qrCodeData, {
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+
+    // Update instance with QR code and set status to connecting
+    await pool.query(
+      `UPDATE whatsapp_instances 
+       SET qr_code = $1, status = 'connecting', updated_at = NOW()
+       WHERE id = $2`,
+      [qrCodeUrl, id]
+    );
+
+    res.json({ 
+      qr_code: qrCodeUrl,
+      status: 'connecting',
+      expires_at: new Date(Date.now() + 60000).toISOString(), // 1 minute
+      message: 'Escaneie o QR Code com seu WhatsApp'
+    });
+  } catch (error) {
+    console.error('Get QR Code error:', error);
+    res.status(500).json({ error: 'Failed to get QR Code' });
+  }
+});
+
+// Simulate WhatsApp connection (mock endpoint)
+app.post('/api/whatsapp/config/:id/connect', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+
+    // Simulate connection after QR code scan
+    await pool.query(
+      `UPDATE whatsapp_instances 
+       SET status = 'connected', updated_at = NOW()
+       WHERE id = $1 AND company_id = $2`,
+      [id, payload.companyId]
+    );
+
+    res.json({ 
+      message: 'WhatsApp connected successfully',
+      status: 'connected'
+    });
+  } catch (error) {
+    console.error('Connect WhatsApp error:', error);
+    res.status(500).json({ error: 'Failed to connect WhatsApp' });
+  }
+});
+
+// Disconnect WhatsApp instance
+app.post('/api/whatsapp/config/:id/disconnect', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const payload = (req as any).user as JWTPayload;
+    const { id } = req.params;
+
+    await pool.query(
+      `UPDATE whatsapp_instances 
+       SET status = 'disconnected', qr_code = NULL, session_data = NULL, updated_at = NOW()
+       WHERE id = $1 AND company_id = $2`,
+      [id, payload.companyId]
+    );
+
+    res.json({ 
+      message: 'WhatsApp disconnected successfully',
+      status: 'disconnected'
+    });
+  } catch (error) {
+    console.error('Disconnect WhatsApp error:', error);
+    res.status(500).json({ error: 'Failed to disconnect WhatsApp' });
   }
 });
 

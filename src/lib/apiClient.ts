@@ -196,6 +196,12 @@ class APIClient {
       }),
     deleteConfig: (id: string) =>
       this.request(`/whatsapp/config/${id}`, { method: 'DELETE' }),
+    getQRCode: (id: string) =>
+      this.request(`/whatsapp/config/${id}/qrcode`),
+    connect: (id: string) =>
+      this.request(`/whatsapp/config/${id}/connect`, { method: 'POST' }),
+    disconnect: (id: string) =>
+      this.request(`/whatsapp/config/${id}/disconnect`, { method: 'POST' }),
   };
 
   // Health check
