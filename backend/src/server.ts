@@ -264,6 +264,7 @@ app.get('/api/whatsapp/instances', authMiddleware, async (req: Request, res: Res
     );
     
     console.log(`📋 Listando ${result.rows.length} instância(s) WhatsApp para company ${payload.companyId}`);
+    res.setHeader("X-Timestamp", Date.now().toString());
     res.json(result.rows);
   } catch (error) {
     console.error('❌ Erro ao buscar instâncias:', error);
@@ -1361,6 +1362,7 @@ app.get('/api/whatsapp/instances', authMiddleware, async (req: Request, res: Res
       [payload.companyId]
     );
     console.log('📋 GET /api/whatsapp/instances - ' + result.rows.length + ' instâncias');
+    res.setHeader("X-Timestamp", Date.now().toString());
     res.json(result.rows);
   } catch (error) {
     console.error('❌ Erro:', error);
@@ -1379,6 +1381,41 @@ app.get('/api/whatsapp/instances/:id', authMiddleware, async (req: Request, res:
     res.json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// ===== WHATSAPP CHATS ROUTE =====
+
+// ROTA DE TESTE SEM AUTH (REMOVER DEPOIS)
+app.get("/api/test/chats/:instanceId", async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM whatsapp_chats WHERE instance_id = $1 ORDER BY last_message_at DESC",
+      [req.params.instanceId]
+    );
+    res.json({ success: true, count: result.rows.length, chats: result.rows });
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+app.get('/api/whatsapp/:instanceId/chats', async (req: Request, res: Response) => {
+  try {
+    const { instanceId } = req.params;
+    const result = await pool.query(
+      `SELECT id, chat_id as "chatId", contact_name as "contactName", contact_number as "contactNumber", last_message as "lastMessage", 
+              last_message_at as "lastMessageAt", unread_count as "unreadCount", total_messages as "totalMessages"
+       FROM whatsapp_chats
+       WHERE instance_id = $1
+       ORDER BY last_message_at DESC`,
+      [instanceId]
+    );
+    console.log(`📋 GET /api/whatsapp/${instanceId}/chats - ${result.rows.length} chat(s) [SEM AUTH]`);
+    res.setHeader("X-Timestamp", Date.now().toString());
+    res.json(result.rows);
+  } catch (error) {
+    console.error('❌ Erro ao buscar chats:', error);
+    res.status(500).json({ error: 'Erro ao buscar chats' });
   }
 });
 

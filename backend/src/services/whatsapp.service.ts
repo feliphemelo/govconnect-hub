@@ -156,8 +156,69 @@ class WhatsAppService {
               message: msg.message,
             });
 
-            // TODO: Salvar mensagem no banco de dados
-            // TODO: Emitir evento via WebSocket para frontend
+            console.log(`📨 Nova mensagem recebida na instância ${instanceId}:`, {
+              from: msg.key.remoteJid,
+              message: msg.message,
+            });
+
+            // Salvar mensagem no banco de dados
+            try {
+              const chatId = msg.key.remoteJid!;
+              const isFromMe = msg.key.fromMe || false;
+              const messageContent = msg.message?.conversation || 
+                                    msg.message?.extendedTextMessage?.text || 
+                                    msg.message?.imageMessage?.caption || 
+                                    '[Mídia]';
+              
+              // Buscar company_id da instância
+              const instanceResult = await pool.query(
+                'SELECT company_id FROM whatsapp_instances WHERE id = $1',
+                [instanceId]
+              );
+              
+              if (instanceResult.rows.length > 0) {
+                const companyId = instanceResult.rows[0].company_id;
+                
+                // Salvar mensagem
+                await pool.query(
+                  `INSERT INTO whatsapp_messages 
+                   (instance_id, company_id, message_id, from_number, to_number, 
+                    message_type, content, is_from_me, timestamp, chat_id)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                   ON CONFLICT (instance_id, message_id) DO NOTHING`,
+                  [
+                    instanceId,
+                    companyId,
+                    msg.key.id!,
+                    isFromMe ? 'me' : chatId,
+                    isFromMe ? chatId : 'me',
+                    'text',
+                    messageContent,
+                    isFromMe,
+                    new Date(msg.messageTimestamp as number * 1000),
+                    chatId
+                  ]
+                );
+                
+                // Atualizar chat
+                await pool.query(
+                  `INSERT INTO whatsapp_chats 
+                   (instance_id, company_id, chat_id, contact_number, last_message, last_message_at, unread_count)
+                   VALUES ($1, $2, $3, $4, $5, NOW(), 1)
+                   ON CONFLICT (instance_id, chat_id) 
+                   DO UPDATE SET 
+                     last_message = EXCLUDED.last_message,
+                     last_message_at = NOW(),
+                     unread_count = whatsapp_chats.unread_count + CASE WHEN $6 THEN 0 ELSE 1 END,
+                     total_messages = whatsapp_chats.total_messages + 1`,
+                  [instanceId, companyId, chatId, chatId.replace('@s.whatsapp.net', ''), messageContent, isFromMe]
+                );
+                
+                console.log(`✅ Mensagem salva no banco: ${msg.key.id}`);
+              }
+            } catch (saveError) {
+              console.error('❌ Erro ao salvar mensagem:', saveError);
+            }
           }
         }
       });
