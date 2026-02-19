@@ -1,10 +1,12 @@
 import express, { Request, Response, NextFunction } from 'express';
+import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { pool } from './config/database';
 import { hashPassword, comparePassword, generateToken, verifyToken } from './utils/auth';
 import type { JWTPayload } from './types';
+import { ChatWebSocketServer } from './websocket';
 
 dotenv.config();
 
@@ -823,8 +825,14 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize WebSocket server
+const wsServer = new ChatWebSocketServer(server);
+
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 GovChat Backend running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔒 CORS Origin: ${process.env.CORS_ORIGIN || '*'}`);
