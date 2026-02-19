@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { NotificationSystem } from "@/components/NotificationSystem";
+import NotificationSystem from "@/components/NotificationSystem";
 
 export function AppHeader() {
   const { user, signOut } = useAuth();
