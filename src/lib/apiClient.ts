@@ -206,6 +206,31 @@ class APIClient {
 
   // Health check
   health = () => this.request('/health');
+
+  // Generic HTTP methods for direct use
+  get<T = any>(endpoint: string, params?: Record<string, any>): Promise<T> {
+    return this.request(endpoint, { params });
+  }
+
+  post<T = any>(endpoint: string, data?: any): Promise<T> {
+    return this.request(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  patch<T = any>(endpoint: string, data?: any): Promise<T> {
+    return this.request(endpoint, {
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  delete<T = any>(endpoint: string): Promise<T> {
+    return this.request(endpoint, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const apiClient = new APIClient();
