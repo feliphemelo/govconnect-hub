@@ -127,23 +127,34 @@ export default function SettingsWhatsApp() {
       
       toast({
         title: "QR Code gerado",
-        description: data.message,
+        description: data.message || "Escaneie o QR Code com seu WhatsApp",
       });
 
-      // Simulate connection after 5 seconds (in production, this would be real-time)
-      setTimeout(async () => {
+      // Polling para verificar status real (a cada 3 segundos)
+      const pollInterval = setInterval(async () => {
         try {
-          await apiClient.whatsapp.connect(instance.id);
-          toast({
-            title: "Conectado!",
-            description: "WhatsApp conectado com sucesso",
-          });
-          setQrDialogOpen(false);
-          loadInstances();
+          const instances = await apiClient.whatsapp.getConfig();
+          const currentInstance = instances.instances?.find((i: any) => i.id === instance.id);
+          
+          if (currentInstance?.status === 'connected') {
+            clearInterval(pollInterval);
+            toast({
+              title: "Conectado!",
+              description: "WhatsApp conectado com sucesso",
+            });
+            setQrDialogOpen(false);
+            loadInstances();
+          }
         } catch (error) {
-          console.error("Error connecting:", error);
+          console.error("Error checking status:", error);
         }
-      }, 5000);
+      }, 3000);
+
+      // Timeout de 2 minutos (QR Code expira)
+      setTimeout(() => {
+        clearInterval(pollInterval);
+      }, 120000);
+
     } catch (error: any) {
       toast({
         title: "Erro",
