@@ -24,7 +24,7 @@ pm2 restart govchat-backend
 echo ""
 echo "4️⃣  Atualizando frontend..."
 cd /var/www/govchat
-rm -rf dist/ node_modules/.vite
+rm -rf dist/ node_modules/.vite .cache
 npm install
 npm run build
 
