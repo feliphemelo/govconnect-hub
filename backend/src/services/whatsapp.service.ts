@@ -304,6 +304,7 @@ class WhatsAppService {
    */
   async sendMessage(instanceId: string, to: string, content: string, type: 'text' | 'image' | 'video' | 'audio' | 'document' = 'text', mediaUrl?: string): Promise<any> {
     try {
+      console.log('🔍 ===== ENVIO DETALHADO =====');
       console.log(`📤 Enviando mensagem via WhatsApp para ${to}: "${content}" (tipo: ${type})`);
       
       const instance = this.instances.get(instanceId);
@@ -311,13 +312,23 @@ class WhatsAppService {
         throw new Error('Instância não conectada');
       }
 
+      // Logs detalhados da instância
+      console.log('📊 Status da instância:', instance.status);
+      console.log('🔌 Socket ativo:', !!instance.socket);
+      if (instance.socket?.user) {
+        console.log('👤 Número conectado:', instance.socket.user.id);
+      }
+
       // Formatar número (garantir que tem o sufixo correto)
       // Se já tem @, usar como está, senão adicionar @s.whatsapp.net
       const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`;
+      console.log('📱 JID formatado:', jid);
 
       let result;
+      const timestamp = Date.now();
       
       if (type === 'text') {
+        console.log('💬 Enviando mensagem de texto...');
         result = await instance.socket.sendMessage(jid, { text: content });
       } else if (type === 'image' && mediaUrl) {
         result = await instance.socket.sendMessage(jid, { 
@@ -342,7 +353,33 @@ class WhatsAppService {
         throw new Error(`Tipo de mensagem não suportado: ${type}`);
       }
       
-      console.log(`✅ Mensagem ${type} enviada com sucesso para ${to}!`);
+      const elapsed = Date.now() - timestamp;
+      console.log(`✅ Mensagem ${type} enviada em ${elapsed}ms`);
+      
+      // Logs detalhados da resposta
+      console.log('📋 Resposta do Baileys:');
+      console.log('  - Status:', result.status);
+      console.log('  - ID:', result.key?.id);
+      console.log('  - RemoteJid:', result.key?.remoteJid);
+      console.log('  - FromMe:', result.key?.fromMe);
+      
+      // Interpretação do status
+      const statusMap: Record<number, string> = {
+        0: 'ERRO',
+        1: 'SERVIDOR (pendente entrega)',
+        2: 'ENTREGUE ao destinatário',
+        3: 'LIDA pelo destinatário',
+      };
+      console.log(`🎯 Status: ${statusMap[result.status] || result.status}`);
+      
+      if (result.status === 1) {
+        console.log('⚠️  Status 1 = Enviada ao servidor WhatsApp, aguardando entrega');
+        console.log('💡 Aguardando 3 segundos para possível mudança de status...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        console.log('⏰ Aguardo concluído');
+      }
+      
+      console.log('================================');
       return result;
     } catch (error) {
       console.error(`❌ Erro ao enviar mensagem:`, error);
